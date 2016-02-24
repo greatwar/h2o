@@ -250,6 +250,9 @@ void h2o_dispose_request(h2o_req_t *req)
         }
     }
 
+    if(req->on_dispose){
+    	req->on_dispose(req);
+    }
     h2o_mem_clear_pool(&req->pool);
 }
 

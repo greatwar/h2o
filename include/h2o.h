@@ -786,6 +786,8 @@ struct st_h2o_req_t {
     h2o_ostream_t *_ostr_top;
     size_t _next_filter_index;
     h2o_timeout_entry_t _timeout_entry;
+    void (*on_dispose)(h2o_req_t *);
+    void *on_dispose_data;
     /* per-request memory pool (placed at the last since the structure is large) */
     h2o_mem_pool_t pool;
 };
