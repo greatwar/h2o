@@ -89,6 +89,36 @@ static int post_test(h2o_handler_t *self, h2o_req_t *req)
     return -1;
 }
 
+static int echo_test(h2o_handler_t *self, h2o_req_t *req)
+{
+	static h2o_generator_t generator = {NULL, NULL};
+	h2o_iovec_t body = h2o_strdup(&req->pool, "hello world\n", SIZE_MAX);
+	req->res.status = 200;
+	req->res.reason = "OK";
+	h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, H2O_STRLIT("text/plain"));
+	h2o_start_response(req, &generator);
+	h2o_send(req, &body, 1, 1);
+	return 0;
+}
+
+static void *echo_in_thread(void *data){
+	h2o_req_t *req = data;
+	static h2o_generator_t generator = {NULL, NULL};
+	h2o_iovec_t body = h2o_strdup(&req->pool, "hello world\n", SIZE_MAX);
+	req->res.status = 200;
+	req->res.reason = "OK";
+	h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, H2O_STRLIT("text/plain"));
+	h2o_start_response(req, &generator);
+	h2o_send(req, &body, 1, 1);
+	return NULL;
+}
+static int threadecho_test(h2o_handler_t *self, h2o_req_t *req)
+{
+	pthread_t tid;
+	pthread_create(&tid,NULL,echo_in_thread,req);
+	return 0;
+}
+
 static h2o_globalconf_t config;
 static h2o_context_t ctx;
 static h2o_multithread_receiver_t libmemcached_receiver;
@@ -223,6 +253,8 @@ int main(int argc, char **argv)
 
     h2o_config_init(&config);
     hostconf = h2o_config_register_host(&config, h2o_iovec_init(H2O_STRLIT("default")), 65535);
+    register_handler(hostconf, "/echo", echo_test);
+    register_handler(hostconf, "/threadecho", threadecho_test);
     register_handler(hostconf, "/post-test", post_test);
     register_handler(hostconf, "/chunked-test", chunked_test);
     h2o_reproxy_register(register_handler(hostconf, "/reproxy-test", reproxy_test));
