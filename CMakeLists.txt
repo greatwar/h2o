@@ -339,6 +339,17 @@ SET_TARGET_PROPERTIES(examples-simple PROPERTIES
     EXCLUDE_FROM_ALL 1)
 TARGET_LINK_LIBRARIES(examples-simple libh2o ${LIBUV_LIBRARIES} ${EXTRA_LIBS})
 
+ADD_EXECUTABLE(examples-thread examples/libh2o/thread.c examples/libh2o/threadpool/thpool.c)
+SET_TARGET_PROPERTIES(examples-thread PROPERTIES
+    EXCLUDE_FROM_ALL 1)
+TARGET_LINK_LIBRARIES(examples-thread libh2o ${LIBUV_LIBRARIES} ${EXTRA_LIBS})
+
+ADD_EXECUTABLE(ev-thread examples/libh2o/thread.c examples/libh2o/threadpool/thpool.c)
+target_compile_definitions(ev-thread PUBLIC "-DH2O_USE_LIBUV=0")
+SET_TARGET_PROPERTIES(ev-thread PROPERTIES
+    EXCLUDE_FROM_ALL 1)
+TARGET_LINK_LIBRARIES(ev-thread libh2o-evloop ${EXTRA_LIBS})
+
 ADD_EXECUTABLE(examples-websocket lib/websocket.c examples/libh2o/websocket.c)
 SET_TARGET_PROPERTIES(examples-websocket PROPERTIES
     EXCLUDE_FROM_ALL 1)
