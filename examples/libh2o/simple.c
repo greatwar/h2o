@@ -32,6 +32,8 @@
 #include "h2o/http2.h"
 #include "h2o/memcached.h"
 
+#include "threadpool/thpool.h"
+
 #define USE_HTTPS 0
 #define USE_MEMCACHED 0
 
@@ -101,21 +103,61 @@ static int echo_test(h2o_handler_t *self, h2o_req_t *req)
 	return 0;
 }
 
-static void *echo_in_thread(void *data){
+static  threadpool thpool;
+typedef struct st_demo_thread_req_private_s demo_thread_req_private_t;
+struct st_demo_thread_req_private_s{
+	h2o_multithread_receiver_t *receiver;
+		h2o_linklist_t pending;
+		h2o_multithread_message_t message;
+		h2o_req_t * req;
+};
+
+static pthread_mutex_t thread_mutex;
+static h2o_linklist_t thread_pending;
+static h2o_multithread_receiver_t thread_receiver;
+
+static void demo_thread_doit(h2o_req_t *req){
+		static h2o_generator_t generator = {NULL, NULL};
+		h2o_iovec_t body = h2o_strdup(&req->pool, "hello world\n", SIZE_MAX);
+		req->res.status = 200;
+		req->res.reason = "OK";
+		h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, H2O_STRLIT("text/plain"));
+		h2o_start_response(req, &generator);
+		h2o_send(req, &body, 1, 1);
+}
+static void demo_thread_receiver(h2o_multithread_receiver_t *receiver, h2o_linklist_t *messages) {
+	while (!h2o_linklist_is_empty(messages)) {
+		demo_thread_req_private_t *req = H2O_STRUCT_FROM_MEMBER(demo_thread_req_private_t,
+					message.link, messages->next);
+			h2o_linklist_unlink(&req->message.link);
+			demo_thread_doit(req->req);
+		}
+}
+
+static void *echo_in_thread(void *data)
+{
 	h2o_req_t *req = data;
-	static h2o_generator_t generator = {NULL, NULL};
-	h2o_iovec_t body = h2o_strdup(&req->pool, "hello world\n", SIZE_MAX);
-	req->res.status = 200;
-	req->res.reason = "OK";
-	h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, H2O_STRLIT("text/plain"));
-	h2o_start_response(req, &generator);
-	h2o_send(req, &body, 1, 1);
+	
+	demo_thread_req_private_t *preq = h2o_mem_alloc_pool(&req->pool,sizeof(demo_thread_req_private_t));
+
+	preq->req = req;
+	
+	preq->receiver = &thread_receiver;
+	preq->pending = (h2o_linklist_t ) { };
+	preq->message = (h2o_multithread_message_t ) { };
+
+	pthread_mutex_lock(&thread_mutex);
+	h2o_linklist_insert(&thread_pending, &preq->pending);
+	pthread_mutex_unlock(&thread_mutex);
+
+	h2o_multithread_send_message(preq->receiver, &preq->message);
+		
 	return NULL;
 }
-static int threadecho_test(h2o_handler_t *self, h2o_req_t *req)
+
+static int threadecho_test(h2o_handler_t *self, h2o_req_t *req) 
 {
-	pthread_t tid;
-	pthread_create(&tid,NULL,echo_in_thread,req);
+	thpool_add_work(thpool,echo_in_thread,req);
 	return 0;
 }
 
@@ -269,6 +311,19 @@ int main(int argc, char **argv)
 #endif
     if (USE_MEMCACHED)
         h2o_multithread_register_receiver(ctx.queue, &libmemcached_receiver, h2o_memcached_receiver);
+
+    /*thread usage demo*/
+    int thread_num = 40;
+    char *poolsz = getenv("poolsz");
+    if(poolsz){
+    	thread_num=atoi(poolsz);
+    }
+    fprintf(stderr,"thread pool size %d\n",thread_num);
+    thpool = thpool_init(thread_num);
+    thread_pending = (h2o_linklist_t ) { &thread_pending, &thread_pending };
+	thread_receiver = (h2o_multithread_receiver_t ) { };
+    pthread_mutex_init(&thread_mutex, NULL);
+    h2o_multithread_register_receiver(ctx.queue, &thread_receiver, demo_thread_receiver);
 
     if (USE_HTTPS && setup_ssl("examples/h2o/server.crt", "examples/h2o/server.key") != 0)
         goto Error;
