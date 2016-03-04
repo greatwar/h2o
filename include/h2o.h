@@ -179,7 +179,7 @@ typedef struct st_h2o_pathconf_t {
      */
     h2o_globalconf_t *global;
     /**
-     * pathname in lower case with "/" appended at last and NULL terminated (or is {NULL,0} if is fallback or extension-level)
+     * pathname in lower case, may or may not have "/" at last, NULL terminated, or is {NULL,0} if is fallback or extension-level
      */
     h2o_iovec_t path;
     /**
@@ -938,6 +938,10 @@ h2o_iovec_t h2o_extract_push_path_from_link_header(h2o_mem_pool_t *pool, const c
 int h2o_get_compressible_types(const h2o_headers_t *headers);
 #define H2O_COMPRESSIBLE_GZIP 1
 #define H2O_COMPRESSIBLE_BROTLI 2
+/**
+ * builds destination URL or path, by contatenating the prefix and path_info of the request
+ */
+h2o_iovec_t h2o_build_destination(h2o_req_t *req, const char *prefix, size_t prefix_len);
 
 extern uint64_t h2o_connection_id;
 
@@ -1058,8 +1062,23 @@ void h2o_config_init(h2o_globalconf_t *config);
 h2o_hostconf_t *h2o_config_register_host(h2o_globalconf_t *config, h2o_iovec_t host, uint16_t port);
 /**
  * registers a path context
+ * @param hostconf host-level configuration that the path-level configuration belongs to
+ * @param path path
+ * @param flags unused and must be set to zero
+ *
+ * Handling of the path argument has changed in version 2.0 (of the standard server).
+ * 
+ * Before 2.0, the function implicitely added a trailing `/` to the supplied path (if it did not end with a `/`), and when receiving
+ * a HTTP request for a matching path without the trailing `/`, libh2o sent a 301 response redirecting the client to a URI with a
+ * trailing `/`.
+ * 
+ * Since 2.0, the function retains the exact path given as the argument, and the handlers of the pathconf is invoked if one of the
+ * following conditions are met:
+ *
+ * * request path is an exact match to the configuration path
+ * * configuration path does not end with a `/`, and the request path begins with the configuration path followed by a `/`
  */
-h2o_pathconf_t *h2o_config_register_path(h2o_hostconf_t *hostconf, const char *pathname);
+h2o_pathconf_t *h2o_config_register_path(h2o_hostconf_t *hostconf, const char *path, int flags);
 /**
  * disposes of the resources allocated for the global configuration
  */
@@ -1390,7 +1409,7 @@ extern const char **h2o_file_default_index_files;
  */
 int h2o_file_send(h2o_req_t *req, int status, const char *reason, const char *path, h2o_iovec_t mime_type, int flags);
 /**
- * registers the file handler to the context
+ * registers a handler that serves a directory of statically-served files
  * @param pathconf
  * @param virtual_path
  * @param real_path
@@ -1399,6 +1418,15 @@ int h2o_file_send(h2o_req_t *req, int status, const char *reason, const char *pa
  */
 h2o_file_handler_t *h2o_file_register(h2o_pathconf_t *pathconf, const char *real_path, const char **index_files,
                                       h2o_mimemap_t *mimemap, int flags);
+/**
+ * registers a handler that serves a specific file
+ * @param pathconf
+ * @param virtual_path
+ * @param real_path
+ * @param index_files optional NULL-terminated list of of filenames to be considered as the "directory-index"
+ * @param mimemap the mimemap (h2o_mimemap_create is called internally if the argument is NULL)
+ */
+h2o_handler_t *h2o_file_register_file(h2o_pathconf_t *pathconf, const char *real_path, h2o_mimemap_type_t *mime_type, int flags);
 /**
  * returns the associated mimemap
  */

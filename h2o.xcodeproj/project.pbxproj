@@ -475,6 +475,7 @@
 		107E340C1C7EAFE600AEF5F8 /* dictionary.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dictionary.cc; sourceTree = "<group>"; };
 		107E340F1C7EB13F00AEF5F8 /* gzip.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gzip.c; sourceTree = "<group>"; };
 		107E34111C7EE0D200AEF5F8 /* brotli.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = brotli.cc; sourceTree = "<group>"; };
+		107E34231C86801E00AEF5F8 /* 50file-file.t */ = {isa = PBXFileReference; lastKnownFileType = text; path = "50file-file.t"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.perl; };
 		108102151C3DB05100C024CD /* 50reverse-proxy-disconnected-keepalive.t */ = {isa = PBXFileReference; lastKnownFileType = text; path = "50reverse-proxy-disconnected-keepalive.t"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.perl; };
 		108214FE1AAD34DD00D27E66 /* 50reverse-proxy-0.t */ = {isa = PBXFileReference; lastKnownFileType = text; path = "50reverse-proxy-0.t"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.perl; };
 		108215071AAD41CE00D27E66 /* test.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; name = test.pl; path = "50reverse-proxy/test.pl"; sourceTree = "<group>"; };
@@ -557,7 +558,6 @@
 		10E299591A68D03100701AA6 /* scheduler.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = scheduler.c; sourceTree = "<group>"; };
 		10EC2A351A0B4D370083514F /* socketpool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = socketpool.h; sourceTree = "<group>"; };
 		10EC2A371A0B4DC70083514F /* socketpool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = socketpool.c; sourceTree = "<group>"; };
-		10F198EB1A7ED2CC00F4585E /* 40pathconf-redirect.t */ = {isa = PBXFileReference; lastKnownFileType = text; path = "40pathconf-redirect.t"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.perl; };
 		10F417D319C1907B00B6E31A /* h2o */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = h2o; sourceTree = BUILT_PRODUCTS_DIR; };
 		10F417D519C190F800B6E31A /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		10F417FD19C2D2F800B6E31A /* picotest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = picotest.c; sourceTree = "<group>"; };
@@ -1249,7 +1249,6 @@
 				105534F41A460EF600627ECB /* 10http1client.t */,
 				104B9A301A58F55E009EEE64 /* 40max-connections.t */,
 				10A3D3D71B4F4D0900327CF9 /* 40memcached-session-resumption.t */,
-				10F198EB1A7ED2CC00F4585E /* 40pathconf-redirect.t */,
 				105534F51A460EF600627ECB /* 40protocol.t */,
 				1070E1641B451D43001CCAFA /* 40proxy-protocol.t */,
 				104B9A311A59D7A2009EEE64 /* 40running-user.t */,
@@ -1267,6 +1266,7 @@
 				10F4EB841C16BADD003DA150 /* 50fastcgi-cgi.t */,
 				10FCC1421B300A6800F13674 /* 50fastcgi-php.t */,
 				105534F61A460EF600627ECB /* 50file-config.t */,
+				107E34231C86801E00AEF5F8 /* 50file-file.t */,
 				100AE41A1B27D74800CE18BB /* 50file-range.t */,
 				1058C87F1AA42568008D6180 /* 50headers.t */,
 				105534F71A460F2E00627ECB /* 50mimemap.t */,
