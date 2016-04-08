@@ -127,6 +127,7 @@ void h2o_multithread_destroy_queue(h2o_multithread_queue_t *queue)
 #else
     h2o_socket_read_stop(queue->async.read);
     h2o_socket_close(queue->async.read);
+    free(queue->async.read);
     close(queue->async.write);
 #endif
     pthread_mutex_destroy(&queue->mutex);
