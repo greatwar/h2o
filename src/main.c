@@ -134,6 +134,7 @@ static struct {
         h2o_multithread_receiver_t memcached;
     } *threads;
     volatile sig_atomic_t shutdown_requested;
+    volatile sig_atomic_t initialized_threads;
     struct {
         /* unused buffers exist to avoid false sharing of the cache line */
         char _unused1[32];
@@ -154,6 +155,7 @@ static struct {
     0,               /* initialized in main() */
     NULL,            /* thread_ids */
     0,               /* shutdown_requested */
+    0,               /* initialized_threads */
     {},              /* state */
 };
 
@@ -1115,6 +1117,10 @@ static void notify_all_threads(void)
 static void on_sigterm(int signo)
 {
     conf.shutdown_requested = 1;
+    if (conf.initialized_threads != conf.num_threads) {
+        /* initialization hasn't completed yet, exit right away */
+        exit(0);
+    }
     notify_all_threads();
 }
 
@@ -1194,14 +1200,14 @@ static void on_socketclose(void *data)
     }
 }
 
-static void on_accept(h2o_socket_t *listener, int status)
+static void on_accept(h2o_socket_t *listener, const char *err)
 {
     struct listener_ctx_t *ctx = listener->data;
     size_t num_accepts = conf.max_connections / 16 / conf.num_threads;
     if (num_accepts < 8)
         num_accepts = 8;
 
-    if (status == -1) {
+    if (err != NULL) {
         return;
     }
 
@@ -1296,6 +1302,7 @@ H2O_NORETURN static void *run_loop(void *_thread_index)
     /* and start listening */
     update_listener_state(listeners);
 
+    __sync_fetch_and_add(&conf.initialized_threads, 1);
     /* the main loop */
     while (1) {
         if (conf.shutdown_requested)
