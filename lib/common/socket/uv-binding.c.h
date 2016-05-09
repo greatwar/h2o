@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 DeNA Co., Ltd.
+ * Copyright (c) 2014-2016 DeNA Co., Ltd., Kazuho Oku, Fastly, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -101,6 +101,18 @@ void do_dispose_socket(h2o_socket_t *_sock)
 {
     struct st_h2o_uv_socket_t *sock = (struct st_h2o_uv_socket_t *)_sock;
     uv_close((uv_handle_t *)sock->uv.stream, free_sock);
+}
+
+int h2o_socket_get_fd(h2o_socket_t *_sock)
+{
+    int fd, ret;
+    struct st_h2o_uv_socket_t *sock = (struct st_h2o_uv_socket_t *)_sock;
+
+    ret = uv_fileno((uv_handle_t *)sock->uv.stream, (uv_os_fd_t*)&fd);
+    if (ret)
+        return -1;
+
+    return fd;
 }
 
 void do_read_start(h2o_socket_t *_sock)

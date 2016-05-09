@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 DeNA Co., Ltd.
+ * Copyright (c) 2014-2016 DeNA Co., Ltd., Kazuho Oku, Fastly, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -352,6 +352,10 @@ struct st_h2o_globalconf_t {
          * SSL context for connections initiated by the proxy (optional, governed by the application)
          */
         SSL_CTX *ssl_ctx;
+        /**
+         * a boolean flag if set to true, instructs the proxy to preserve the x-forwarded-proto header passed by the client
+         */
+        int preserve_x_forwarded_proto;
     } proxy;
 
     /**
@@ -605,6 +609,10 @@ typedef struct st_h2o_conn_callbacks_t {
      * callback for server push (may be NULL)
      */
     void (*push_path)(h2o_req_t *req, const char *abspath, size_t abspath_len);
+    /**
+     * Return the underlying socket struct
+     */
+    h2o_socket_t *(*get_socket)(h2o_conn_t *_conn);
     /**
      * logging callbacks (may be NULL)
      */

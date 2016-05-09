@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2014-2016 DeNA Co., Ltd., Kazuho Oku, Shota Fukumori
+ * Copyright (c) 2014-2016 DeNA Co., Ltd., Kazuho Oku, Shota Fukumori,
+ *                         Fastly, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -706,6 +707,12 @@ static socklen_t get_peername(h2o_conn_t *_conn, struct sockaddr *sa)
     return h2o_socket_getpeername(conn->sock, sa);
 }
 
+static h2o_socket_t *get_socket(h2o_conn_t *_conn)
+{
+    struct st_h2o_http1_conn_t *conn = (void *)_conn;
+    return conn->sock;
+}
+
 #define DEFINE_TLS_LOGGER(name)                                                                                                    \
     static h2o_iovec_t log_##name(h2o_req_t *req)                                                                                  \
     {                                                                                                                              \
@@ -744,9 +751,10 @@ static int foreach_request(h2o_context_t *ctx, int (*cb)(h2o_req_t *req, void *c
 void h2o_http1_accept(h2o_accept_ctx_t *ctx, h2o_socket_t *sock, struct timeval connected_at)
 {
     static const h2o_conn_callbacks_t callbacks = {
-        get_sockname, /* stringify address */
-        get_peername, /* ditto */
-        NULL,         /* push */
+        get_sockname,   /* stringify address */
+        get_peername,   /* ditto */
+        NULL,           /* push */
+        get_socket, /* get underlying socket */
         {{
           {log_protocol_version, log_session_reused, log_cipher, log_cipher_bits}, /* ssl */
           {log_request_index},                                                     /* http1 */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 DeNA Co., Ltd.
+ * Copyright (c) 2014-2016 DeNA Co., Ltd., Kazuho Oku, Fastly, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -1035,6 +1035,12 @@ static socklen_t get_peername(h2o_conn_t *_conn, struct sockaddr *sa)
     return h2o_socket_getpeername(conn->sock, sa);
 }
 
+static h2o_socket_t *get_socket(h2o_conn_t *_conn)
+{
+    h2o_http2_conn_t *conn = (void *)_conn;
+    return conn->sock;
+}
+
 #define DEFINE_TLS_LOGGER(name)                                                                                                    \
     static h2o_iovec_t log_##name(h2o_req_t *req)                                                                                  \
     {                                                                                                                              \
@@ -1132,6 +1138,7 @@ static h2o_http2_conn_t *create_conn(h2o_context_t *ctx, h2o_hostconf_t **hosts,
         get_sockname, /* stringify address */
         get_peername, /* ditto */
         push_path,    /* HTTP2 push */
+        get_socket, /* get underlying socket */
         {{
             {log_protocol_version, log_session_reused, log_cipher, log_cipher_bits}, /* ssl */
             {}, /* http1 */
@@ -1168,15 +1175,20 @@ static void push_path(h2o_req_t *src_req, const char *abspath, size_t abspath_le
     h2o_http2_conn_t *conn = (void *)src_req->conn;
     h2o_http2_stream_t *src_stream = H2O_STRUCT_FROM_MEMBER(h2o_http2_stream_t, req, src_req);
 
+    /* RFC 7540 8.2.1: PUSH_PROMISE frames can be sent by the server in response to any client-initiated stream */
+    if (h2o_http2_stream_is_push(src_stream->stream_id))
+        return;
+
     if (!conn->peer_settings.enable_push || conn->num_streams.push.open >= conn->peer_settings.max_concurrent_streams)
         return;
+
     if (conn->push_stream_ids.max_open >= 0x7ffffff0)
         return;
     if (!(h2o_linklist_is_empty(&conn->_pending_reqs) && can_run_requests(conn)))
         return;
 
     /* casper-related code */
-    if (src_stream->req.hostconf->http2.casper.capacity_bits != 0 && !h2o_http2_stream_is_push(src_stream->stream_id)) {
+    if (src_stream->req.hostconf->http2.casper.capacity_bits != 0) {
         size_t header_index;
         switch (src_stream->pull.casper_state) {
         case H2O_HTTP2_STREAM_CASPER_STATE_TBD:
