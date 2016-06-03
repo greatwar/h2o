@@ -185,6 +185,10 @@
 		10BCF2FD1B168CAE0076939D /* fastcgi.c in Sources */ = {isa = PBXBuildFile; fileRef = 10BCF2FC1B168CAE0076939D /* fastcgi.c */; };
 		10BCF2FF1B1A892F0076939D /* fastcgi.c in Sources */ = {isa = PBXBuildFile; fileRef = 10BCF2FE1B1A892F0076939D /* fastcgi.c */; };
 		10BCF3011B214C460076939D /* fastcgi.c in Sources */ = {isa = PBXBuildFile; fileRef = 10BCF3001B214C460076939D /* fastcgi.c */; };
+		10C45D4F1CFD15FA0096DB06 /* throttle_resp.c in Sources */ = {isa = PBXBuildFile; fileRef = 10C45D4E1CFD15FA0096DB06 /* throttle_resp.c */; };
+		10C45D511CFD160A0096DB06 /* throttle_resp.c in Sources */ = {isa = PBXBuildFile; fileRef = 10C45D501CFD160A0096DB06 /* throttle_resp.c */; };
+		10C45D551CFE9B300096DB06 /* events.c in Sources */ = {isa = PBXBuildFile; fileRef = 10C45D531CFE9B300096DB06 /* events.c */; };
+		10C45D561CFE9B300096DB06 /* requests.c in Sources */ = {isa = PBXBuildFile; fileRef = 10C45D541CFE9B300096DB06 /* requests.c */; };
 		10D0903A19F0A51C0043D458 /* memory.h in Headers */ = {isa = PBXBuildFile; fileRef = 10D0903919F0A51C0043D458 /* memory.h */; };
 		10D0903E19F0A8190043D458 /* socket.h in Headers */ = {isa = PBXBuildFile; fileRef = 10D0903D19F0A8190043D458 /* socket.h */; };
 		10D0904119F0B9CD0043D458 /* timeout.h in Headers */ = {isa = PBXBuildFile; fileRef = 10D0904019F0B9CD0043D458 /* timeout.h */; };
@@ -198,6 +202,9 @@
 		10D0906C19F395FC0043D458 /* socket-client.c in Sources */ = {isa = PBXBuildFile; fileRef = 10D0905219F0CB130043D458 /* socket-client.c */; };
 		10D0907019F494CC0043D458 /* test.c in Sources */ = {isa = PBXBuildFile; fileRef = 10D0906E19F494CC0043D458 /* test.c */; };
 		10D0907319F633B00043D458 /* proxy.c in Sources */ = {isa = PBXBuildFile; fileRef = 10D0907219F633B00043D458 /* proxy.c */; };
+		10DA969C1CD2BF9000679165 /* cache.h in Headers */ = {isa = PBXBuildFile; fileRef = 10DA969B1CD2BF9000679165 /* cache.h */; };
+		10DA969E1CD2BFAC00679165 /* cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 10DA969D1CD2BFAC00679165 /* cache.c */; };
+		10DA96A01CD2BFEE00679165 /* cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 10DA969F1CD2BFEE00679165 /* cache.c */; };
 		10E299581A67E68500701AA6 /* scheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = 10E299571A67E68500701AA6 /* scheduler.c */; };
 		10E2995A1A68D03100701AA6 /* scheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = 10E299591A68D03100701AA6 /* scheduler.c */; };
 		10E598011CE1683A000D7B94 /* mruby.c in Sources */ = {isa = PBXBuildFile; fileRef = 10B38A731B8D3544007DC191 /* mruby.c */; };
@@ -556,6 +563,12 @@
 		10BCF2FE1B1A892F0076939D /* fastcgi.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fastcgi.c; sourceTree = "<group>"; };
 		10BCF3001B214C460076939D /* fastcgi.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fastcgi.c; sourceTree = "<group>"; };
 		10C2117C1B8164B1005A9D02 /* 90root-fastcgi-php.t */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "90root-fastcgi-php.t"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.perl; };
+		10C45D4D1CFD15890096DB06 /* 50throttle-response.t */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "50throttle-response.t"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.perl; };
+		10C45D4E1CFD15FA0096DB06 /* throttle_resp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = throttle_resp.c; sourceTree = "<group>"; };
+		10C45D501CFD160A0096DB06 /* throttle_resp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = throttle_resp.c; sourceTree = "<group>"; };
+		10C45D531CFE9B300096DB06 /* events.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = events.c; sourceTree = "<group>"; };
+		10C45D541CFE9B300096DB06 /* requests.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = requests.c; sourceTree = "<group>"; };
+		10C45D571CFE9BB60096DB06 /* 50status.t */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = 50status.t; sourceTree = "<group>"; };
 		10C5A6311B268632006094A6 /* 50fastcgi.t */ = {isa = PBXFileReference; lastKnownFileType = text; path = 50fastcgi.t; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.perl; };
 		10D0903919F0A51C0043D458 /* memory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = memory.h; sourceTree = "<group>"; };
 		10D0903D19F0A8190043D458 /* socket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = socket.h; sourceTree = "<group>"; };
@@ -573,6 +586,9 @@
 		10D0906F19F494CC0043D458 /* test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test.h; sourceTree = "<group>"; };
 		10D0907219F633B00043D458 /* proxy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = proxy.c; sourceTree = "<group>"; };
 		10DA969A1CCEF2C200679165 /* 50reverse-proxy-https.t */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "50reverse-proxy-https.t"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.perl; };
+		10DA969B1CD2BF9000679165 /* cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cache.h; sourceTree = "<group>"; };
+		10DA969D1CD2BFAC00679165 /* cache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cache.c; sourceTree = "<group>"; };
+		10DA969F1CD2BFEE00679165 /* cache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cache.c; sourceTree = "<group>"; };
 		10E299571A67E68500701AA6 /* scheduler.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = scheduler.c; sourceTree = "<group>"; };
 		10E299591A68D03100701AA6 /* scheduler.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = scheduler.c; sourceTree = "<group>"; };
 		10EC2A351A0B4D370083514F /* socketpool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = socketpool.h; sourceTree = "<group>"; };
@@ -691,6 +707,7 @@
 		104B9A4A1A5FA7E5009EEE64 /* common */ = {
 			isa = PBXGroup;
 			children = (
+				10DA969D1CD2BFAC00679165 /* cache.c */,
 				107D4D541B5B30EE004A9B21 /* file.c */,
 				1044812F1BFD10450007863F /* filecache.c */,
 				1058C8891AA6E5E3008D6180 /* hostinfo.c */,
@@ -732,6 +749,8 @@
 				10AA2EA41A8D9999004322AC /* redirect.c */,
 				10AA2EC31AA0403A004322AC /* reproxy.c */,
 				10835E021C9A860000197E59 /* status.c */,
+				10C45D521CFE9B180096DB06 /* status */,
+				10C45D501CFD160A0096DB06 /* throttle_resp.c */,
 			);
 			path = handler;
 			sourceTree = "<group>";
@@ -756,6 +775,7 @@
 		104B9A4D1A5FAA7B009EEE64 /* common */ = {
 			isa = PBXGroup;
 			children = (
+				10DA969F1CD2BFEE00679165 /* cache.c */,
 				10F9F2661AFC5F550056F26B /* hostinfo.c */,
 				10AA2EAD1A8E22DA004322AC /* multithread.c */,
 				104B9A271A4A5139009EEE64 /* serverutil.c */,
@@ -838,6 +858,7 @@
 				10AA2EA61A8DA93C004322AC /* redirect.c */,
 				10AA2EC11AA0402E004322AC /* reproxy.c */,
 				10835E041C9B3C6200197E59 /* status.c */,
+				10C45D4E1CFD15FA0096DB06 /* throttle_resp.c */,
 			);
 			path = configurator;
 			sourceTree = "<group>";
@@ -1063,6 +1084,7 @@
 		1079239F19A3215F00C52AD6 /* h2o */ = {
 			isa = PBXGroup;
 			children = (
+				10DA969B1CD2BF9000679165 /* cache.h */,
 				105534D71A3C785000627ECB /* configurator.h */,
 				107D4D521B5B2412004A9B21 /* file.h */,
 				1044812D1BFD0FBE0007863F /* filecache.h */,
@@ -1283,6 +1305,15 @@
 			path = libh2o;
 			sourceTree = "<group>";
 		};
+		10C45D521CFE9B180096DB06 /* status */ = {
+			isa = PBXGroup;
+			children = (
+				10C45D531CFE9B300096DB06 /* events.c */,
+				10C45D541CFE9B300096DB06 /* requests.c */,
+			);
+			path = status;
+			sourceTree = "<group>";
+		};
 		10D0903F19F0B90A0043D458 /* socket */ = {
 			isa = PBXGroup;
 			children = (
@@ -1337,6 +1368,8 @@
 				10DA969A1CCEF2C200679165 /* 50reverse-proxy-https.t */,
 				104B9A2B1A4BBDA4009EEE64 /* 50server-starter.t */,
 				105534FA1A460F4200627ECB /* 50sni.t */,
+				10C45D571CFE9BB60096DB06 /* 50status.t */,
+				10C45D4D1CFD15890096DB06 /* 50throttle-response.t */,
 				105534FE1A46134A00627ECB /* 80issues61.t */,
 				1092E0011BEB1DDC001074BF /* 80issues579.t */,
 				104481271BFC05FC0007863F /* 80issues595.t */,
@@ -1441,6 +1474,7 @@
 				10AA2E9F1A8807CF004322AC /* url.h in Headers */,
 				10B38A721B8D34BB007DC191 /* mruby_.h in Headers */,
 				10FCC13F1B2E4A4500F13674 /* cloexec.h in Headers */,
+				10DA969C1CD2BF9000679165 /* cache.h in Headers */,
 				1044812E1BFD0FBE0007863F /* filecache.h in Headers */,
 				107923A619A3215F00C52AD6 /* http2.h in Headers */,
 				107923A719A3215F00C52AD6 /* token.h in Headers */,
@@ -1642,7 +1676,9 @@
 				10A3D40A1B50DAB700327CF9 /* recv.c in Sources */,
 				101788B219B561AA0084C6D8 /* socket.c in Sources */,
 				10D0905519F102C70043D458 /* http1client.c in Sources */,
+				10DA969E1CD2BFAC00679165 /* cache.c in Sources */,
 				107923D219A3217300C52AD6 /* token.c in Sources */,
+				10C45D551CFE9B300096DB06 /* events.c in Sources */,
 				1058C88A1AA6E5E3008D6180 /* hostinfo.c in Sources */,
 				10AA2EBC1A9EEDF8004322AC /* proxy.c in Sources */,
 				10AA2EC01AA019FC004322AC /* headers.c in Sources */,
@@ -1660,6 +1696,7 @@
 				10583BF11AE5A37B004A3AD6 /* Makefile in Sources */,
 				107923CD19A3217300C52AD6 /* memory.c in Sources */,
 				107923CC19A3217300C52AD6 /* context.c in Sources */,
+				10C45D561CFE9B300096DB06 /* requests.c in Sources */,
 				10A3D40C1B50DAB700327CF9 /* socket.c in Sources */,
 				10AA2EC21AA0402E004322AC /* reproxy.c in Sources */,
 				10835E011C9A6C2400197E59 /* logconf.c in Sources */,
@@ -1675,6 +1712,7 @@
 				10F4180519CA75C500B6E31A /* configurator.c in Sources */,
 				104B9A461A5F608A009EEE64 /* serverutil.c in Sources */,
 				1065E6ED19B7B9CB00686E72 /* websocket.c in Sources */,
+				10C45D511CFD160A0096DB06 /* throttle_resp.c in Sources */,
 				10AA2EA51A8D9999004322AC /* redirect.c in Sources */,
 				101B670C19ADD3380084A351 /* access_log.c in Sources */,
 				10BA72AA19AAD6300059392A /* stream.c in Sources */,
@@ -1690,6 +1728,7 @@
 				107923CB19A3217300C52AD6 /* frame.c in Sources */,
 				104B9A491A5F9638009EEE64 /* headers.c in Sources */,
 				106C22FF1C05436100405689 /* errordoc.c in Sources */,
+				10C45D4F1CFD15FA0096DB06 /* throttle_resp.c in Sources */,
 				107923C219A3217300C52AD6 /* chunked.c in Sources */,
 				10A3D4081B50DAB700327CF9 /* close.c in Sources */,
 				105534EF1A440FC800627ECB /* config.c in Sources */,
@@ -1780,6 +1819,7 @@
 				107D4D4A1B5880BC004A9B21 /* reader.c in Sources */,
 				1079244819A3265C00C52AD6 /* connection.c in Sources */,
 				1079244119A3264300C52AD6 /* picohttpparser.c in Sources */,
+				10DA96A01CD2BFEE00679165 /* cache.c in Sources */,
 				1070E1631B4508B0001CCAFA /* util.c in Sources */,
 				107E341D1C7FEE1000AEF5F8 /* literal_cost.cc in Sources */,
 				1058C87D1AA41789008D6180 /* headers.c in Sources */,
@@ -1935,6 +1975,7 @@
 				);
 				HEADER_SEARCH_PATHS = (
 					"/usr/local/openssl-1.0.2/include",
+					deps/yaml/include,
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
 					/usr/local/include,
@@ -1945,7 +1986,6 @@
 					/usr/local/lib,
 				);
 				OTHER_LDFLAGS = (
-					"-lmemcached",
 					"-lssl",
 					"-lcrypto",
 					"-luv",
@@ -2075,6 +2115,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "H2O_UNITTEST=1";
 				HEADER_SEARCH_PATHS = (
 					"/usr/local/openssl-1.0.2/include",
+					deps/yaml/include,
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
 					/usr/local/include,
@@ -2085,7 +2126,6 @@
 					/usr/local/lib,
 				);
 				OTHER_LDFLAGS = (
-					"-lmemcached",
 					"-lssl",
 					"-lcrypto",
 					"-luv",
@@ -2377,6 +2417,7 @@
 				);
 				HEADER_SEARCH_PATHS = (
 					"/usr/local/openssl-1.0.2/include",
+					deps/yaml/include,
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
 					/usr/local/include,
@@ -2387,7 +2428,6 @@
 					/usr/local/lib,
 				);
 				OTHER_LDFLAGS = (
-					"-lmemcached",
 					"-lssl",
 					"-lcrypto",
 					"-lz",
@@ -2405,6 +2445,7 @@
 				);
 				HEADER_SEARCH_PATHS = (
 					"/usr/local/openssl-1.0.2/include",
+					deps/yaml/include,
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
 					/usr/local/include,
@@ -2415,7 +2456,6 @@
 					/usr/local/lib,
 				);
 				OTHER_LDFLAGS = (
-					"-lmemcached",
 					"-lssl",
 					"-lcrypto",
 					"-lz",

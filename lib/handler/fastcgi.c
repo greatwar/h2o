@@ -461,7 +461,7 @@ static void errorclose(struct st_fcgi_generator_t *generator)
     } else {
         h2o_req_t *req = generator->req;
         close_generator(generator);
-        h2o_send_error(req, 503, "Internal Server Error", "Internal Server Error", 0);
+        h2o_send_error_503(req, "Internal Server Error", "Internal Server Error", 0);
     }
 }
 
@@ -506,7 +506,7 @@ static int fill_headers(h2o_req_t *req, struct phr_header *headers, size_t num_h
                 h2o_add_header(&req->pool, &req->res.headers, token,
                                h2o_strdup(&req->pool, headers[i].value, headers[i].value_len).base, headers[i].value_len);
                 if (token == H2O_TOKEN_LINK)
-                    h2o_puth_path_in_link_header(req, headers[i].value, headers[i].value_len);
+                    h2o_push_path_in_link_header(req, headers[i].value, headers[i].value_len);
             }
         } else if (h2o_memis(headers[i].name, headers[i].name_len, H2O_STRLIT("status"))) {
             h2o_iovec_t value = h2o_iovec_init(headers[i].value, headers[i].value_len);

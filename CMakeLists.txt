@@ -24,12 +24,12 @@ CMAKE_POLICY(SET CMP0003 NEW)
 PROJECT(h2o)
 
 SET(VERSION_MAJOR "2")
-SET(VERSION_MINOR "0")
+SET(VERSION_MINOR "1")
 SET(VERSION_PATCH "0")
 SET(VERSION_PRERELEASE "-DEV")
 SET(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}${VERSION_PRERELEASE}")
 SET(LIBRARY_VERSION_MAJOR "0")
-SET(LIBRARY_VERSION_MINOR "10")
+SET(LIBRARY_VERSION_MINOR "11")
 SET(LIBRARY_VERSION_PATCH "0")
 SET(LIBRARY_VERSION "${LIBRARY_VERSION_MAJOR}.${LIBRARY_VERSION_MINOR}.${LIBRARY_VERSION_PATCH}${VERSION_PRERELEASE}")
 SET(LIBRARY_SOVERSION "${LIBRARY_VERSION_MAJOR}.${LIBRARY_VERSION_MINOR}")
@@ -202,6 +202,7 @@ SET(LIB_SOURCE_FILES
     deps/libyrmcds/text_mode.c
     deps/picohttpparser/picohttpparser.c
 
+    lib/common/cache.c
     lib/common/file.c
     lib/common/filecache.c
     lib/common/hostinfo.c
@@ -242,7 +243,10 @@ SET(LIB_SOURCE_FILES
     lib/handler/proxy.c
     lib/handler/redirect.c
     lib/handler/reproxy.c
+    lib/handler/throttle_resp.c
     lib/handler/status.c
+    lib/handler/status/events.c
+    lib/handler/status/requests.c
     lib/handler/configurator/access_log.c
     lib/handler/configurator/compress.c
     lib/handler/configurator/errordoc.c
@@ -253,6 +257,7 @@ SET(LIB_SOURCE_FILES
     lib/handler/configurator/proxy.c
     lib/handler/configurator/redirect.c
     lib/handler/configurator/reproxy.c
+    lib/handler/configurator/throttle_resp.c
     lib/handler/configurator/status.c
 
     lib/http1.c
@@ -272,6 +277,7 @@ SET(UNIT_TEST_SOURCE_FILES
     ${BROTLI_SOURCE_FILES}
     deps/picotest/picotest.c
     t/00unit/test.c
+    t/00unit/lib/common/cache.c
     t/00unit/lib/common/hostinfo.c
     t/00unit/lib/common/multithread.c
     t/00unit/lib/common/serverutil.c
@@ -294,6 +300,7 @@ SET(UNIT_TEST_SOURCE_FILES
     t/00unit/src/ssl.c
     t/00unit/issues/293.c)
 LIST(REMOVE_ITEM UNIT_TEST_SOURCE_FILES
+    lib/common/cache.c
     lib/common/hostinfo.c
     lib/common/multithread.c
     lib/common/serverutil.c

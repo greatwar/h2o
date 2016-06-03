@@ -51,6 +51,16 @@ EOT
             my $resp = `nghttp $opts -n --stat '$proto://127.0.0.1:$port/index.txt?resp:link=</index.txt.gz>\%3b\%20rel=preload'`;
             like $resp, qr{\nid\s*responseEnd\s.*\s/index\.txt\?.*\s/index\.txt.gz\n}is;
         };
+        subtest "push-1xx" => sub {
+            my $out = `nghttp $opts -n --stat '$proto://127.0.0.1:$port/1xx-push/'`;
+            # index.js arrives < 100ms, and /1xx-push/ arrives > 1sec
+            $out = (split /^.*?\nid *responseEnd .*?\n/s, $out, 2)[1];
+            chomp $out;
+            my @responses = split /\n/, $out;
+            is scalar(@responses), 2, "2 responses";
+            like $responses[0], qr{\+[0-9]{1,2}\.[0-9]*ms .* /index.js$}, "index.js arrives < 100ms";
+            like $responses[1], qr{\+1\.[0-9]*s .* /1xx-push/$}, "/1xx-push/ arrives >= 1sec";
+        };
         subtest 'push-while-sleep' => sub {
             my $resp = `nghttp $opts -n --stat '$proto://127.0.0.1:$port/mruby/sleep-and-respond?sleep=1'`;
             like $resp, qr{\nid\s*responseEnd\s.*\s/index\.txt\.gz\n.*\s/mruby/sleep-and-respond}is;
@@ -67,6 +77,34 @@ EOT
         $doit->('https', '', $server->{tls_port});
     };
 };
+
+subtest "push-twice" => sub {
+    my $server = spawn_h2o(sub {
+        my ($port, $tls_port) = @_;
+        return << "EOT";
+hosts:
+  "127.0.0.1:$tls_port":
+    paths:
+      /:
+        mruby.handler: |
+          Proc.new do |env|
+            case env["PATH_INFO"]
+            when "/index.txt"
+              push_paths = []
+              push_paths << "/index.js"
+              [399, push_paths.empty? ? {} : {"link" => push_paths.map{|p| "<#{p}>; rel=preload"}.join("\\n")}, []]
+            else
+              [399, {}, []]
+            end
+          end
+        file.dir: t/assets/doc_root
+EOT
+    });
+    my $resp = `nghttp -v -m 2 -n --stat https://127.0.0.1:$server->{tls_port}/index.txt`;
+    like $resp, qr{\s+200\s+16\s+/index\.js\n}is, "receives index.js";
+    unlike $resp, qr{\s+200\s+16\s+/index\.js\n.*\s+200\s+16\s+/index\.js\n}is, "receives index.js only once";
+};
+
 
 subtest "push-after-reproxy" => sub {
     subtest "authority-match" => sub {
