@@ -196,13 +196,11 @@ h2o_pathconf_t *h2o_config_register_path(h2o_hostconf_t *hostconf, const char *p
     h2o_pathconf_t *pathconf;
 
     h2o_vector_reserve(NULL, &hostconf->paths, hostconf->paths.size + 1);
-    int len = strlen(path);
     h2o_pathconf_t *end = hostconf->paths.entries + hostconf->paths.size++;
     h2o_pathconf_t *item = end - 1;
     pathconf = hostconf->paths.entries;
     int cnt = 0;
     while (item >= hostconf->paths.entries) {
-        // printf("test %s\n", item->path.base);
         if (strcmp(path, item->path.base) <= 0) {
             pathconf = item + 1;
             break;
