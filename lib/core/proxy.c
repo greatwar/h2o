@@ -174,6 +174,8 @@ static h2o_iovec_t build_request(h2o_req_t *req, int keepalive, int is_websocket
                 const h2o_token_t *token = (void *)h->name;
                 if (token->proxy_should_drop) {
                     continue;
+                } else if (token == H2O_TOKEN_HOST) {
+                    continue;
                 } else if (token == H2O_TOKEN_COOKIE) {
                     /* merge the cookie headers; see HTTP/2 8.1.2.5 and HTTP/1 (RFC6265 5.4) */
                     /* FIXME current algorithm is O(n^2) against the number of cookie headers */
@@ -327,7 +329,7 @@ static int on_body(h2o_http1client_t *client, const char *errstr)
 }
 
 static h2o_http1client_body_cb on_head(h2o_http1client_t *client, const char *errstr, int minor_version, int status,
-                                       h2o_iovec_t msg, struct phr_header *headers, size_t num_headers)
+                                       h2o_iovec_t msg, h2o_http1client_header_t *headers, size_t num_headers)
 {
     struct rp_generator_t *self = client->data;
     h2o_req_t *req = self->src_req;
@@ -411,7 +413,7 @@ static h2o_http1client_body_cb on_head(h2o_http1client_t *client, const char *er
     return on_body;
 }
 
-static int on_1xx(h2o_http1client_t *client, int minor_version, int status, h2o_iovec_t msg, struct phr_header *headers,
+static int on_1xx(h2o_http1client_t *client, int minor_version, int status, h2o_iovec_t msg, h2o_http1client_header_t *headers,
                   size_t num_headers)
 {
     struct rp_generator_t *self = client->data;

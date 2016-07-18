@@ -278,17 +278,12 @@ int close_connection(h2o_http2_conn_t *conn)
     return 0;
 }
 
-static inline void h2o_context_http2_protocol_error_count(h2o_context_t *ctx, int errnum)
-{
-    ctx->http2.events.protocol_level_errors[-errnum]++;
-}
-
 void send_stream_error(h2o_http2_conn_t *conn, uint32_t stream_id, int errnum)
 {
     assert(stream_id != 0);
     assert(conn->state < H2O_HTTP2_CONN_STATE_IS_CLOSING);
 
-    h2o_context_http2_protocol_error_count(conn->super.ctx, -errnum);
+    conn->super.ctx->http2.events.protocol_level_errors[-errnum]++;
 
     h2o_http2_encode_rst_stream_frame(&conn->_write.buf, stream_id, -errnum);
     h2o_http2_conn_request_write(conn);
@@ -297,10 +292,8 @@ void send_stream_error(h2o_http2_conn_t *conn, uint32_t stream_id, int errnum)
 static void request_gathered_write(h2o_http2_conn_t *conn)
 {
     assert(conn->state < H2O_HTTP2_CONN_STATE_IS_CLOSING);
-    if (conn->_write.buf_in_flight == NULL) {
-        if (!h2o_timeout_is_linked(&conn->_write.timeout_entry))
-            h2o_timeout_link(conn->super.ctx->loop, &conn->super.ctx->zero_timeout, &conn->_write.timeout_entry);
-    }
+    if (conn->sock->_cb.write == NULL && !h2o_timeout_is_linked(&conn->_write.timeout_entry))
+        h2o_timeout_link(conn->super.ctx->loop, &conn->super.ctx->zero_timeout, &conn->_write.timeout_entry);
 }
 
 static int update_stream_output_window(h2o_http2_stream_t *stream, ssize_t delta)
@@ -324,7 +317,7 @@ static int handle_incoming_request(h2o_http2_conn_t *conn, h2o_http2_stream_t *s
 
     header_exists_map = 0;
     if ((ret = h2o_hpack_parse_headers(&stream->req, &conn->_input_header_table, src, len, &header_exists_map,
-                                       &stream->_expected_content_length, err_desc)) != 0)
+                                       &stream->_expected_content_length, &stream->cache_digests, err_desc)) != 0)
         return ret;
 
 #define EXPECTED_MAP                                                                                                               \
@@ -362,7 +355,7 @@ static int handle_trailing_headers(h2o_http2_conn_t *conn, h2o_http2_stream_t *s
 
     assert(stream->state == H2O_HTTP2_STREAM_STATE_RECV_BODY);
 
-    if ((ret = h2o_hpack_parse_headers(&stream->req, &conn->_input_header_table, src, len, NULL, &dummy_content_length,
+    if ((ret = h2o_hpack_parse_headers(&stream->req, &conn->_input_header_table, src, len, NULL, &dummy_content_length, NULL,
                                        err_desc)) != 0)
         return ret;
 
@@ -918,6 +911,17 @@ void h2o_http2_conn_register_for_proceed_callback(h2o_http2_conn_t *conn, h2o_ht
     }
 }
 
+static void on_notify_write(h2o_socket_t *sock, const char *err)
+{
+    h2o_http2_conn_t *conn = sock->data;
+
+    if (err != NULL) {
+        close_connection_now(conn);
+        return;
+    }
+    do_emit_writereq(conn);
+}
+
 static void on_write_complete(h2o_socket_t *sock, const char *err)
 {
     h2o_http2_conn_t *conn = sock->data;
@@ -936,7 +940,7 @@ static void on_write_complete(h2o_socket_t *sock, const char *err)
     assert(conn->_write.buf_in_flight == NULL);
 
     /* call the proceed callback of the streams that have been flushed (while unlinking them from the list) */
-    if (err == NULL && conn->state < H2O_HTTP2_CONN_STATE_IS_CLOSING) {
+    if (conn->state < H2O_HTTP2_CONN_STATE_IS_CLOSING) {
         while (!h2o_linklist_is_empty(&conn->_write.streams_to_proceed)) {
             h2o_http2_stream_t *stream =
                 H2O_STRUCT_FROM_MEMBER(h2o_http2_stream_t, _refs.link, conn->_write.streams_to_proceed.next);
@@ -949,6 +953,14 @@ static void on_write_complete(h2o_socket_t *sock, const char *err)
     /* cancel the write callback if scheduled (as the generator may have scheduled a write just before this function gets called) */
     if (h2o_timeout_is_linked(&conn->_write.timeout_entry))
         h2o_timeout_unlink(&conn->_write.timeout_entry);
+
+#if !H2O_USE_LIBUV
+    if (conn->state == H2O_HTTP2_CONN_STATE_OPEN) {
+        if (conn->_write.buf->size != 0 || h2o_http2_scheduler_is_active(&conn->scheduler))
+            h2o_socket_notify_write(sock, on_notify_write);
+        return;
+    }
+#endif
 
     /* write more, if possible */
     if (do_emit_writereq(conn))
@@ -1197,35 +1209,33 @@ static void push_path(h2o_req_t *src_req, const char *abspath, size_t abspath_le
     if (!(h2o_linklist_is_empty(&conn->_pending_reqs) && can_run_requests(conn)))
         return;
 
-    /* casper-related code */
+    if (h2o_find_header(&src_stream->req.headers, H2O_TOKEN_X_FORWARDED_FOR, -1) != -1)
+        return;
+
+    if (src_stream->cache_digests != NULL) {
+        h2o_iovec_t url = h2o_concat(&src_stream->req.pool, src_stream->req.input.scheme->name, h2o_iovec_init(H2O_STRLIT("://")),
+                                     src_stream->req.input.authority, h2o_iovec_init(abspath, abspath_len));
+        if (h2o_cache_digests_lookup_by_url(src_stream->cache_digests, url.base, url.len) == H2O_CACHE_DIGESTS_STATE_FRESH)
+            return;
+    }
+
+    /* delayed initialization of casper (cookie-based), that MAY be used together to cache-digests */
     if (src_stream->req.hostconf->http2.casper.capacity_bits != 0) {
-        size_t header_index;
-        switch (src_stream->pull.casper_state) {
-        case H2O_HTTP2_STREAM_CASPER_STATE_TBD:
-            /* disable casper for this request if intermediary exists */
-            if (h2o_find_header(&src_stream->req.headers, H2O_TOKEN_X_FORWARDED_FOR, -1) != -1) {
-                src_stream->pull.casper_state = H2O_HTTP2_STREAM_CASPER_DISABLED;
-                return;
-            }
-            /* casper enabled for this request */
+        if (!src_stream->pull.casper_is_ready) {
+            src_stream->pull.casper_is_ready = 1;
             if (conn->casper == NULL)
                 h2o_http2_conn_init_casper(conn, src_stream->req.hostconf->http2.casper.capacity_bits);
-            /* consume casper cookie */
+            ssize_t header_index;
             for (header_index = -1;
                  (header_index = h2o_find_header(&src_stream->req.headers, H2O_TOKEN_COOKIE, header_index)) != -1;) {
                 h2o_header_t *header = src_stream->req.headers.entries + header_index;
                 h2o_http2_casper_consume_cookie(conn->casper, header->value.base, header->value.len);
             }
-            src_stream->pull.casper_state = H2O_HTTP2_STREAM_CASPER_READY;
-        case H2O_HTTP2_STREAM_CASPER_READY:
-            break;
-        case H2O_HTTP2_STREAM_CASPER_DISABLED:
-            return;
         }
     }
 
     /* update the push memo, and if it already pushed on the same connection, return */
-    if (update_push_memo(conn, src_req, abspath, abspath_len))
+    if (update_push_memo(conn, &src_stream->req, abspath, abspath_len))
         return;
 
     /* open the stream */

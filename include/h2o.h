@@ -352,6 +352,10 @@ struct st_h2o_globalconf_t {
          */
         size_t max_streams_for_priority;
         /**
+         * conditions for latency optimization
+         */
+        h2o_socket_latency_optimization_conditions_t latency_optimization;
+        /**
          * list of callbacks
          */
         h2o_protocol_callbacks_t callbacks;
@@ -1048,9 +1052,9 @@ size_t h2o_stringify_protocol_version(char *dst, int version);
 /**
  * extracts path to be pushed from `Link: rel=prelead` header, duplicating the chunk (or returns {NULL,0} if none)
  */
-h2o_iovec_t h2o_extract_push_path_from_link_header(h2o_mem_pool_t *pool, const char *value, size_t value_len, h2o_iovec_t base_path,
-                                                   const h2o_url_scheme_t *input_scheme, h2o_iovec_t input_authority,
-                                                   const h2o_url_scheme_t *base_scheme, h2o_iovec_t *base_authority);
+h2o_iovec_vector_t h2o_extract_push_path_from_link_header(h2o_mem_pool_t *pool, const char *value, size_t value_len, h2o_iovec_t base_path,
+                                                          const h2o_url_scheme_t *input_scheme, h2o_iovec_t input_authority,
+                                                          const h2o_url_scheme_t *base_scheme, h2o_iovec_t *base_authority);
 /**
  * return a bitmap of compressible types, by parsing the `accept-encoding` header
  */

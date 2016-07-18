@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include "h2o.h"
 #include "h2o/configurator.h"
 
@@ -115,9 +116,9 @@ static int setup_configurators(h2o_configurator_context_t *ctx, int is_enter, yo
 
 static int config_timeout(h2o_configurator_command_t *cmd, yoml_t *node, uint64_t *slot)
 {
-    unsigned timeout_in_secs;
+    uint64_t timeout_in_secs;
 
-    if (h2o_configurator_scanf(cmd, node, "%u", &timeout_in_secs) != 0)
+    if (h2o_configurator_scanf(cmd, node, "%" PRIu64, &timeout_in_secs) != 0)
         return -1;
 
     *slot = timeout_in_secs * 1000;
@@ -301,6 +302,7 @@ static int on_config_hosts(h2o_configurator_command_t *cmd, h2o_configurator_con
         h2o_configurator_context_t *host_ctx = create_context(ctx, 0);
         if ((host_ctx->hostconf = h2o_config_register_host(host_ctx->globalconf, hostname, port)) == NULL) {
             h2o_configurator_errprintf(cmd, key, "duplicate host entry");
+            destroy_context(host_ctx);
             return -1;
         }
         host_ctx->mimemap = &host_ctx->hostconf->mimemap;
@@ -355,6 +357,32 @@ static int on_config_http2_max_concurrent_requests_per_connection(h2o_configurat
                                                                   yoml_t *node)
 {
     return h2o_configurator_scanf(cmd, node, "%zu", &ctx->globalconf->http2.max_concurrent_requests_per_connection);
+}
+
+static int on_config_http2_latency_optimization_min_rtt(h2o_configurator_command_t *cmd, h2o_configurator_context_t *ctx,
+                                                        yoml_t *node)
+{
+    return h2o_configurator_scanf(cmd, node, "%u", &ctx->globalconf->http2.latency_optimization.min_rtt);
+}
+
+static int on_config_http2_latency_optimization_max_additional_delay(h2o_configurator_command_t *cmd,
+                                                                     h2o_configurator_context_t *ctx, yoml_t *node)
+{
+    double ratio;
+    if (h2o_configurator_scanf(cmd, node, "%lf", &ratio) != 0)
+        return -1;
+    if (!(0.0 < ratio)) {
+        h2o_configurator_errprintf(cmd, node, "ratio must be a positive number");
+        return -1;
+    }
+    ctx->globalconf->http2.latency_optimization.max_additional_delay = 100 * ratio;
+    return 0;
+}
+
+static int on_config_http2_latency_optimization_max_cwnd(h2o_configurator_command_t *cmd, h2o_configurator_context_t *ctx,
+                                                         yoml_t *node)
+{
+    return h2o_configurator_scanf(cmd, node, "%u", &ctx->globalconf->http2.latency_optimization.max_cwnd);
 }
 
 static int on_config_http2_reprioritize_blocking_assets(h2o_configurator_command_t *cmd, h2o_configurator_context_t *ctx,
@@ -772,6 +800,15 @@ void h2o_configurator__init_core(h2o_globalconf_t *conf)
         h2o_configurator_define_command(&c->super, "http2-max-concurrent-requests-per-connection",
                                         H2O_CONFIGURATOR_FLAG_GLOBAL | H2O_CONFIGURATOR_FLAG_EXPECT_SCALAR,
                                         on_config_http2_max_concurrent_requests_per_connection);
+        h2o_configurator_define_command(&c->super, "http2-latency-optimization-min-rtt",
+                                        H2O_CONFIGURATOR_FLAG_GLOBAL | H2O_CONFIGURATOR_FLAG_EXPECT_SCALAR,
+                                        on_config_http2_latency_optimization_min_rtt);
+        h2o_configurator_define_command(&c->super, "http2-latency-optimization-max-additional-delay",
+                                        H2O_CONFIGURATOR_FLAG_GLOBAL | H2O_CONFIGURATOR_FLAG_EXPECT_SCALAR,
+                                        on_config_http2_latency_optimization_max_additional_delay);
+        h2o_configurator_define_command(&c->super, "http2-latency-optimization-max-cwnd",
+                                        H2O_CONFIGURATOR_FLAG_GLOBAL | H2O_CONFIGURATOR_FLAG_EXPECT_SCALAR,
+                                        on_config_http2_latency_optimization_max_cwnd);
         h2o_configurator_define_command(&c->super, "http2-reprioritize-blocking-assets",
                                         H2O_CONFIGURATOR_FLAG_GLOBAL | H2O_CONFIGURATOR_FLAG_HOST |
                                             H2O_CONFIGURATOR_FLAG_EXPECT_SCALAR,
