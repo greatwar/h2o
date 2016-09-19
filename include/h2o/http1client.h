@@ -30,16 +30,17 @@ extern "C" {
 #include "h2o/socket.h"
 #include "h2o/socketpool.h"
 #include "h2o/timeout.h"
+#include "h2o/cache.h"
 
 struct phr_header;
 typedef struct st_h2o_http1client_t h2o_http1client_t;
 
 /* the definition MUST match that of `struct phr_header` */
 typedef struct st_h2o_http1client_header_t {
-  const char* name;
-  size_t name_len;
-  const char* value;
-  size_t value_len;
+    const char *name;
+    size_t name_len;
+    const char *value;
+    size_t value_len;
 } h2o_http1client_header_t;
 
 typedef int (*h2o_http1client_body_cb)(h2o_http1client_t *client, const char *errstr);

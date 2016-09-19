@@ -54,9 +54,9 @@ void h2o_cache_digests_destroy(h2o_cache_digests_t *digests)
 static void load_digest(h2o_cache_digests_t **digests, const char *gcs_base64, size_t gcs_base64_len, int with_validators,
                         int complete)
 {
-    h2o_cache_digests_frame_t frame = {};
+    h2o_cache_digests_frame_t frame = {{NULL}};
     h2o_iovec_t gcs_bin;
-    struct st_golombset_decode_t ctx = {};
+    struct st_golombset_decode_t ctx = {NULL};
     uint64_t nbits, pbits;
 
     /* decode base64 */
@@ -77,7 +77,7 @@ static void load_digest(h2o_cache_digests_t **digests, const char *gcs_base64, s
     uint64_t value = UINT64_MAX, decoded;
     while (golombset_decode_value(&ctx, (unsigned)pbits, &decoded) == 0) {
         value += decoded + 1;
-        if (value >= (uint64_t) 1 << frame.capacity_bits)
+        if (value >= (uint64_t)1 << frame.capacity_bits)
             goto Exit;
         h2o_vector_reserve(NULL, &frame.keys, frame.keys.size + 1);
         frame.keys.entries[frame.keys.size++] = value;
@@ -86,12 +86,12 @@ static void load_digest(h2o_cache_digests_t **digests, const char *gcs_base64, s
     /* store the result */
     if (*digests == NULL) {
         *digests = h2o_mem_alloc(sizeof(**digests));
-        **digests = (h2o_cache_digests_t){};
+        **digests = (h2o_cache_digests_t){{{NULL}}};
     }
     h2o_cache_digests_frame_vector_t *target = with_validators ? &(*digests)->fresh.url_and_etag : &(*digests)->fresh.url_only;
     h2o_vector_reserve(NULL, target, target->size + 1);
     target->entries[target->size++] = frame;
-    frame = (h2o_cache_digests_frame_t){};
+    frame = (h2o_cache_digests_frame_t){{NULL}};
     (*digests)->fresh.complete = complete;
 
 Exit:
@@ -142,19 +142,20 @@ void h2o_cache_digests_load_header(h2o_cache_digests_t **digests, const char *va
 static uint64_t calc_hash(const char *url, size_t url_len, const char *etag, size_t etag_len)
 {
     SHA256_CTX ctx;
-    unsigned char md[SHA256_DIGEST_LENGTH];
-    uint64_t key;
+    union {
+        unsigned char bytes[SHA256_DIGEST_LENGTH];
+        uint64_t u64;
+    } md;
 
     SHA256_Init(&ctx);
     SHA256_Update(&ctx, url, url_len);
     SHA256_Update(&ctx, etag, etag_len);
-    SHA256_Final(md, &ctx);
+    SHA256_Final(md.bytes, &ctx);
 
-    memcpy(&key, md + sizeof(md) - sizeof(key), sizeof(key));
-    if (*(uint16_t *)"\xde\xad" != 0xdead)
-        key = __builtin_bswap64(key);
-
-    return key;
+    if (*(uint16_t *)"\xde\xad" == 0xdead)
+        return md.u64;
+    else
+        return __builtin_bswap64(md.u64);
 }
 
 static int cmp_key(const void *_x, const void *_y)
@@ -178,7 +179,7 @@ static int lookup(h2o_cache_digests_frame_vector_t *vector, const char *url, siz
         size_t i = 0;
         do {
             h2o_cache_digests_frame_t *frame = vector->entries + i;
-            uint64_t key = hash & (((uint64_t)1 << frame->capacity_bits) - 1);
+            uint64_t key = hash >> (64 - frame->capacity_bits);
             if (bsearch(&key, frame->keys.entries, frame->keys.size, sizeof(frame->keys.entries[0]), cmp_key) != NULL)
                 return is_fresh ? H2O_CACHE_DIGESTS_STATE_FRESH : H2O_CACHE_DIGESTS_STATE_STALE;
         } while (++i != vector->size);
