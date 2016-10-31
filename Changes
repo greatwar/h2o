@@ -1,5 +1,8 @@
 Revision history for H2O.
 
+2.1.0-beta4 TBD
+	- [compress] set `vary: accept-encoding` upon negotiation failure of the compression method #1083 (Frederik Deweerdt)
+
 2.1.0-beta3 2016-09-14 08:00:00+0000
 	- [security fix][core] fix DoS attack vector CVE-2016-4864 (Frederik Deweerdt, Kazuho Oku)
 	- [core] enable TCP latency optimization by default #873 #1076 (Kazuho Oku)
@@ -194,8 +197,8 @@ Revision history for H2O.
 	- [misc] downgrade required CMake version to 2.8.11 #594 (Kazuho Oku)
 
 1.5.4 2015-11-12 04:05:00+0000
-        - [access-log] do not emit protocol and authority for `%U` #586 (Kazuho Oku)
-        - [ssl] fix handshake failure with older versions of Android (2.x) #591 (Kazuho Oku)
+	- [access-log] do not emit protocol and authority for `%U` #586 (Kazuho Oku)
+	- [ssl] fix handshake failure with older versions of Android (2.x) #591 (Kazuho Oku)
 
 1.5.3 2015-11-06 04:30:00+0000
 	- [core] decode url-encoded character at the end of path #567 (Kazuho Oku)
