@@ -183,9 +183,6 @@ void h2o_http2_conn_register_stream(h2o_http2_conn_t *conn, h2o_http2_stream_t *
     khiter_t iter;
     int r;
 
-    if (!h2o_http2_stream_is_push(stream->stream_id) && conn->pull_stream_ids.max_open < stream->stream_id)
-        conn->pull_stream_ids.max_open = stream->stream_id;
-
     iter = kh_put(h2o_http2_stream_t, conn->streams, stream->stream_id, &r);
     assert(iter != kh_end(conn->streams));
     kh_val(conn->streams, iter) = stream;
@@ -1255,8 +1252,7 @@ static void push_path(h2o_req_t *src_req, const char *abspath, size_t abspath_le
         return;
 
     /* open the stream */
-    conn->push_stream_ids.max_open += 2;
-    h2o_http2_stream_t *stream = h2o_http2_stream_open(conn, conn->push_stream_ids.max_open, NULL, &h2o_http2_default_priority);
+    h2o_http2_stream_t *stream = h2o_http2_stream_open(conn, conn->push_stream_ids.max_open + 2, NULL, &h2o_http2_default_priority);
     stream->received_priority.dependency = src_stream->stream_id;
     stream->push.parent_stream_id = src_stream->stream_id;
     h2o_http2_scheduler_open(&stream->_refs.scheduler, &src_stream->_refs.scheduler.node, 16, 0);
@@ -1364,6 +1360,7 @@ int h2o_http2_handle_upgrade(h2o_req_t *req, struct timeval connected_at)
 
     return 0;
 Error:
+    h2o_linklist_unlink(&http2conn->_conns);
     free(http2conn);
     return -1;
 }
