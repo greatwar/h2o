@@ -37,6 +37,7 @@
 #include <mruby_input_stream.h>
 #include "h2o.h"
 #include "h2o/mruby_.h"
+#include "mruby/embedded.c.h"
 
 #define STATUS_FALLTHRU 399
 #define FALLTHRU_SET_PREFIX "x-fallthru-set-"
@@ -64,11 +65,15 @@ void h2o_mruby_setup_globals(mrb_state *mrb)
     h2o_mruby_assert(mrb);
 
     /* require core modules and include built-in libraries */
-    h2o_mruby_eval_expr(mrb, "require \"preloads.rb\"");
+    h2o_mruby_eval_expr(mrb, "require \"#{$H2O_ROOT}/share/h2o/mruby/preloads.rb\"");
     if (mrb->exc != NULL) {
-        mrb_value obj = mrb_funcall(mrb, mrb_obj_value(mrb->exc), "inspect", 0);
-        struct RString *error = mrb_str_ptr(obj);
-        fprintf(stderr, "an error occurred while loading %s/%s: %s", root, "share/h2o/mruby/preloads.rb", error->as.heap.ptr);
+        if (mrb_obj_is_instance_of(mrb, mrb_obj_value(mrb->exc), mrb_class_get(mrb, "LoadError"))) {
+            fprintf(stderr, "file \"%s/%s\" not found. Did you forget to run `make install` ?", root, "share/h2o/mruby/preloads.rb");
+        } else {
+            mrb_value obj = mrb_funcall(mrb, mrb_obj_value(mrb->exc), "inspect", 0);
+            struct RString *error = mrb_str_ptr(obj);
+            fprintf(stderr, "an error occurred while loading %s/%s: %s", root, "share/h2o/mruby/preloads.rb", error->as.heap.ptr);
+        }
         abort();
     }
 }
@@ -87,23 +92,10 @@ mrb_value h2o_mruby_eval_expr(mrb_state *mrb, const char *expr)
 
 void h2o_mruby_define_callback(mrb_state *mrb, const char *name, int id)
 {
-    char buf[1024];
-
-    sprintf(buf, "module Kernel\n"
-                 "  def %s(*args)\n"
-                 "    ret = Fiber.yield([\n"
-                 "      %d,\n"
-                 "      _h2o_create_resumer(),\n"
-                 "      args,\n"
-                 "    ])\n"
-                 "    if ret.kind_of? Exception\n"
-                 "      raise ret\n"
-                 "    end\n"
-                 "    ret\n"
-                 "  end\n"
-                 "end",
-            name, id);
-    h2o_mruby_eval_expr(mrb, buf);
+    mrb_value args[2];
+    args[0] = mrb_str_new_cstr(mrb, name);
+    args[1] = mrb_fixnum_value(id);
+    mrb_funcall_argv(mrb, mrb_top_self(mrb), mrb_intern_lit(mrb, "_h2o_define_callback"), 2, args);
 
     if (mrb->exc != NULL) {
         fprintf(stderr, "failed to define mruby function: %s\n", name);
@@ -278,53 +270,14 @@ static mrb_value build_constants(mrb_state *mrb, const char *server_name, size_t
 #undef SET_LITERAL
 #undef SET_STRING
 
-    mrb_ary_set(mrb, ary, H2O_MRUBY_PROC_EACH_TO_ARRAY, h2o_mruby_eval_expr(mrb, "Proc.new do |o|\n"
-                                                                                 "  a = []\n"
-                                                                                 "  o.each do |x|\n"
-                                                                                 "    a << x\n"
-                                                                                 "  end\n"
-                                                                                 "  a\n"
-                                                                                 "end"));
+    h2o_mruby_eval_expr(mrb, H2O_MRUBY_CODE_CORE);
+    h2o_mruby_assert(mrb);
+
+    mrb_ary_set(mrb, ary, H2O_MRUBY_PROC_EACH_TO_ARRAY, mrb_funcall(mrb, mrb_obj_value(mrb->kernel_module), "_h2o_proc_each_to_array", 0));
     h2o_mruby_assert(mrb);
 
     /* sends exception using H2O_MRUBY_CALLBACK_ID_EXCEPTION_RAISED */
-    mrb_ary_set(mrb, ary, H2O_MRUBY_PROC_APP_TO_FIBER, h2o_mruby_eval_expr(mrb, "Proc.new do |app|\n"
-                                                                                "  cached = nil\n"
-                                                                                "  Proc.new do |req|\n"
-                                                                                "    fiber = cached\n"
-                                                                                "    cached = nil\n"
-                                                                                "    if !fiber\n"
-                                                                                "      fiber = Fiber.new do\n"
-                                                                                "        self_fiber = Fiber.current\n"
-                                                                                "        req = Fiber.yield\n"
-                                                                                "        while 1\n"
-                                                                                "          begin\n"
-                                                                                "            while 1\n"
-                                                                                "              resp = app.call(req)\n"
-                                                                                "              cached = self_fiber\n"
-                                                                                "              req = Fiber.yield(resp)\n"
-                                                                                "            end\n"
-                                                                                "          rescue => e\n"
-                                                                                "            cached = self_fiber\n"
-                                                                                "            req = Fiber.yield([-1, e])\n"
-                                                                                "          end\n"
-                                                                                "        end\n"
-                                                                                "      end\n"
-                                                                                "      fiber.resume\n"
-                                                                                "    end\n"
-                                                                                "    fiber.resume(req)\n"
-                                                                                "  end\n"
-                                                                                "end"));
-    h2o_mruby_assert(mrb);
-
-    h2o_mruby_eval_expr(mrb, "module Kernel\n"
-                             "  def _h2o_create_resumer()\n"
-                             "    me = Fiber.current\n"
-                             "    Proc.new do |v|\n"
-                             "      me.resume(v)\n"
-                             "    end\n"
-                             "  end\n"
-                             "end");
+    mrb_ary_set(mrb, ary, H2O_MRUBY_PROC_APP_TO_FIBER, mrb_funcall(mrb, mrb_obj_value(mrb->kernel_module), "_h2o_proc_app_to_fiber", 0));
     h2o_mruby_assert(mrb);
 
     mrb_gc_arena_restore(mrb, gc_arena);

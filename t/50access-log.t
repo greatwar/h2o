@@ -15,6 +15,9 @@ sub doit {
     unlink "$tempdir/access_log";
 
     my $server = spawn_h2o(<< "EOT");
+ssl-session-resumption:
+  mode: cache
+  cache-store: internal
 hosts:
   default:
     paths:
@@ -25,6 +28,12 @@ hosts:
           port: /nonexistent
           type: unix
         error-log.emit-request-errors: OFF
+      /set-cookie:
+        file.dir: @{[ DOC_ROOT ]}
+        header.add: "set-cookie: a=b"
+        header.add: "set-cookie: c=d"
+        header.add: "cache-control: must-revalidate"
+        header.add: "cache-control: no-store"
     access-log:
       format: "$format"
       path: $tempdir/access_log
@@ -79,13 +88,16 @@ subtest "strftime-special" => sub {
 };
 
 subtest "more-fields" => sub {
+    my $local_port = "";
     doit(
         sub {
             my $server = shift;
-            system("curl --silent http://127.0.0.1:$server->{port}/ > /dev/null");
+            my $resp = `curl --silent -w ',\%{local_port}' http://127.0.0.1:$server->{port}/`;
+            like $resp, qr{,(\d+)$}s;
+            $local_port = do { $resp =~ /,(\d+)$/s; $1 };
         },
-        '\"%A:%p\"',
-        sub { my $server = shift; qr{^\"127\.0\.0\.1:$server->{port}\"$} },
+        '\"%A:%p\" \"%{local}p\" \"%{remote}p\"',
+        sub { my $server = shift; qr{^\"127\.0\.0\.1:$server->{port}\" \"$server->{port}\" \"$local_port\"$} },
     );
 };
 
@@ -172,6 +184,17 @@ subtest 'extensions' => sub {
     );
 };
 
+subtest 'ssl-log' => sub {
+    doit(
+        sub {
+            my $server = shift;
+            system("curl --silent -k https://127.0.0.1:$server->{tls_port}/ > /dev/null");
+        },
+        '%{ssl.session-id}x',
+        qr{^\S+$}s,
+    );
+};
+
 subtest 'error' => sub {
     doit(
         sub {
@@ -180,6 +203,18 @@ subtest 'error' => sub {
         },
         '%{error}x',
         qr{^\[lib/handler/fastcgi\.c\] connection failed:}s,
+    );
+};
+
+subtest 'set-cookie' => sub {
+    # set-cookie header is the only header to be concatenated with %{...}o, according to Apache
+    doit(
+        sub {
+            my $server = shift;
+            system("curl --silent http://127.0.0.1:$server->{port}/set-cookie/ > /dev/null");
+        },
+        '%{set-cookie}o %{cache-control}o',
+        qr{^a=b, c=d must-revalidate$}s,
     );
 };
 

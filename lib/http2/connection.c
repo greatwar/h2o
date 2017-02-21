@@ -392,11 +392,11 @@ static ssize_t expect_continuation_of_headers(h2o_http2_conn_t *conn, const uint
         return H2O_HTTP2_ERROR_PROTOCOL;
     }
 
-    h2o_buffer_reserve(&conn->_headers_unparsed, frame.length);
-    memcpy(conn->_headers_unparsed->bytes + conn->_headers_unparsed->size, frame.payload, frame.length);
-    conn->_headers_unparsed->size += frame.length;
+    if (conn->_headers_unparsed->size + frame.length <= H2O_MAX_REQLEN) {
+        h2o_buffer_reserve(&conn->_headers_unparsed, frame.length);
+        memcpy(conn->_headers_unparsed->bytes + conn->_headers_unparsed->size, frame.payload, frame.length);
+        conn->_headers_unparsed->size += frame.length;
 
-    if (conn->_headers_unparsed->size <= H2O_MAX_REQLEN) {
         if ((frame.flags & H2O_HTTP2_FRAME_FLAG_END_HEADERS) != 0) {
             conn->_read_expect = expect_default;
             if (stream->state == H2O_HTTP2_STREAM_STATE_RECV_HEADERS) {
@@ -741,8 +741,10 @@ static int handle_ping_frame(h2o_http2_conn_t *conn, h2o_http2_frame_t *frame, c
     if ((ret = h2o_http2_decode_ping_payload(&payload, frame, err_desc)) != 0)
         return ret;
 
-    h2o_http2_encode_ping_frame(&conn->_write.buf, 1, payload.data);
-    h2o_http2_conn_request_write(conn);
+    if ((frame->flags & H2O_HTTP2_FRAME_FLAG_ACK) == 0) {
+        h2o_http2_encode_ping_frame(&conn->_write.buf, 1, payload.data);
+        h2o_http2_conn_request_write(conn);
+    }
 
     return 0;
 }
@@ -1072,7 +1074,7 @@ DEFINE_TLS_LOGGER(protocol_version)
 DEFINE_TLS_LOGGER(session_reused)
 DEFINE_TLS_LOGGER(cipher)
 DEFINE_TLS_LOGGER(cipher_bits)
-
+DEFINE_TLS_LOGGER(session_id)
 #undef DEFINE_TLS_LOGGER
 
 static h2o_iovec_t log_stream_id(h2o_req_t *req)
@@ -1161,8 +1163,8 @@ static h2o_http2_conn_t *create_conn(h2o_context_t *ctx, h2o_hostconf_t **hosts,
         get_socket,                /* get underlying socket */
         h2o_http2_get_debug_state, /* get debug state */
         {{
-            {log_protocol_version, log_session_reused, log_cipher, log_cipher_bits}, /* ssl */
-            {NULL},                                                                  /* http1 */
+            {log_protocol_version, log_session_reused, log_cipher, log_cipher_bits, log_session_id}, /* ssl */
+            {NULL},                                                                                  /* http1 */
             {log_stream_id, log_priority_received, log_priority_received_exclusive, log_priority_received_parent,
              log_priority_received_weight, log_priority_actual, log_priority_actual_parent, log_priority_actual_weight} /* http2 */
         }} /* loggers */
@@ -1361,6 +1363,7 @@ int h2o_http2_handle_upgrade(h2o_req_t *req, struct timeval connected_at)
     return 0;
 Error:
     h2o_linklist_unlink(&http2conn->_conns);
+    kh_destroy(h2o_http2_stream_t, http2conn->streams);
     free(http2conn);
     return -1;
 }

@@ -98,6 +98,7 @@ typedef struct st_h2o_hostconf_t h2o_hostconf_t;
 typedef struct st_h2o_globalconf_t h2o_globalconf_t;
 typedef struct st_h2o_mimemap_t h2o_mimemap_t;
 typedef struct st_h2o_logconf_t h2o_logconf_t;
+typedef struct st_h2o_headers_command_t h2o_headers_command_t;
 
 /**
  * a predefined, read-only, fast variant of h2o_iovec_t, defined in h2o/token.h
@@ -755,6 +756,7 @@ typedef struct st_h2o_conn_callbacks_t {
                 h2o_iovec_t (*session_reused)(h2o_req_t *req);
                 h2o_iovec_t (*cipher)(h2o_req_t *req);
                 h2o_iovec_t (*cipher_bits)(h2o_req_t *req);
+                h2o_iovec_t (*session_id)(h2o_req_t *req);
             } ssl;
             struct {
                 h2o_iovec_t (*request_index)(h2o_req_t *req);
@@ -841,6 +843,10 @@ typedef struct st_h2o_req_overrides_t {
      * whether if the PROXY header should be sent
      */
     unsigned use_proxy_protocol : 1;
+    /**
+     * headers rewrite commands to be used when sending requests to upstream (or NULL)
+     */
+    h2o_headers_command_t *headers_cmds;
 } h2o_req_overrides_t;
 
 /**
@@ -1142,12 +1148,12 @@ size_t h2o_stringify_proxy_header(h2o_conn_t *conn, char *buf);
 #define H2O_PROXY_HEADER_MAX_LENGTH                                                                                                \
     (sizeof("PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n") - 1)
 /**
- * extracts path to be pushed from `Link: rel=prelead` header, duplicating the chunk (or returns {NULL,0} if none)
+ * extracts path to be pushed from `Link: rel=preload` header, duplicating the chunk (or returns {NULL,0} if none)
  */
 h2o_iovec_vector_t h2o_extract_push_path_from_link_header(h2o_mem_pool_t *pool, const char *value, size_t value_len,
                                                           h2o_iovec_t base_path, const h2o_url_scheme_t *input_scheme,
                                                           h2o_iovec_t input_authority, const h2o_url_scheme_t *base_scheme,
-                                                          h2o_iovec_t *base_authority);
+                                                          h2o_iovec_t *base_authority, h2o_iovec_t *filtered_value);
 /**
  * return a bitmap of compressible types, by parsing the `accept-encoding` header
  */
@@ -1445,8 +1451,9 @@ void h2o_send_redirect_internal(h2o_req_t *req, h2o_iovec_t method, const char *
 h2o_iovec_t h2o_get_redirect_method(h2o_iovec_t method, int status);
 /**
  * registers push path (if necessary) by parsing a Link header
+ * this returns a version of `value` that removes the links that had the `x-http2-push-only` attribute
  */
-int h2o_push_path_in_link_header(h2o_req_t *req, const char *value, size_t value_len);
+h2o_iovec_t h2o_push_path_in_link_header(h2o_req_t *req, const char *value, size_t value_len);
 /**
  * logs an error
  */
@@ -1562,9 +1569,9 @@ typedef struct st_h2o_compress_context_t {
      */
     h2o_iovec_t name;
     /**
-     * compress
+     * compress or decompress callback
      */
-    void (*compress)(struct st_h2o_compress_context_t *self, h2o_iovec_t *inbufs, size_t inbufcnt, h2o_send_state_t state,
+    void (*transform)(struct st_h2o_compress_context_t *self, h2o_iovec_t *inbufs, size_t inbufcnt, h2o_send_state_t state,
                      h2o_iovec_t **outbufs, size_t *outbufcnt);
 } h2o_compress_context_t;
 
@@ -1586,6 +1593,10 @@ void h2o_compress_register(h2o_pathconf_t *pathconf, h2o_compress_args_t *args);
  * instantiates the gzip compressor
  */
 h2o_compress_context_t *h2o_compress_gzip_open(h2o_mem_pool_t *pool, int quality);
+/**
+ * instantiates the gzip decompressor
+ */
+h2o_compress_context_t *h2o_compress_gunzip_open(h2o_mem_pool_t *pool);
 /**
  * instantiates the brotli compressor (only available if H2O_USE_BROTLI is set)
  */
@@ -1680,7 +1691,7 @@ void h2o_fastcgi_register_configurator(h2o_globalconf_t *conf);
 
 /* lib/file.c */
 
-enum { H2O_FILE_FLAG_NO_ETAG = 0x1, H2O_FILE_FLAG_DIR_LISTING = 0x2, H2O_FILE_FLAG_SEND_COMPRESSED = 0x4 };
+enum { H2O_FILE_FLAG_NO_ETAG = 0x1, H2O_FILE_FLAG_DIR_LISTING = 0x2, H2O_FILE_FLAG_SEND_COMPRESSED = 0x4, H2O_FILE_FLAG_GUNZIP = 0x8 };
 
 typedef struct st_h2o_file_handler_t h2o_file_handler_t;
 
@@ -1730,11 +1741,11 @@ enum {
     H2O_HEADERS_CMD_UNSET       /* removes the named header(s) */
 };
 
-typedef struct st_h2o_headers_command_t {
+struct st_h2o_headers_command_t {
     int cmd;
     h2o_iovec_t *name; /* maybe a token */
     h2o_iovec_t value;
-} h2o_headers_command_t;
+};
 
 /**
  * registers a list of commands terminated by cmd==H2O_HEADERS_CMD_NULL
@@ -1760,6 +1771,7 @@ typedef struct st_h2o_proxy_config_vars_t {
         int enabled;
         uint64_t timeout;
     } websocket;
+    h2o_headers_command_t *headers_cmds;
     SSL_CTX *ssl_ctx; /* optional */
 } h2o_proxy_config_vars_t;
 
@@ -1816,6 +1828,17 @@ void h2o_duration_stats_register(h2o_globalconf_t *conf);
  * registers the configurator
  */
 void h2o_status_register_configurator(h2o_globalconf_t *conf);
+
+/* lib/handler/headers_util.c */
+
+/**
+ * appends a headers command to the list
+ */
+void h2o_headers_append_command(h2o_headers_command_t **cmds, int cmd, h2o_iovec_t *name, h2o_iovec_t value);
+/**
+ * rewrite headers by the command provided
+ */
+void h2o_rewrite_headers(h2o_mem_pool_t *pool, h2o_headers_t *headers, h2o_headers_command_t *cmd);
 
 /* lib/handler/http2_debug_state.c */
 

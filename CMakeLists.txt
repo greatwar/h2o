@@ -25,7 +25,7 @@ CMAKE_POLICY(SET CMP0003 NEW)
 PROJECT(h2o)
 
 SET(VERSION_MAJOR "2")
-SET(VERSION_MINOR "1")
+SET(VERSION_MINOR "2")
 SET(VERSION_PATCH "0")
 SET(VERSION_PRERELEASE "-DEV")
 SET(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}${VERSION_PRERELEASE}")
@@ -63,14 +63,7 @@ OPTION(BUILD_SHARED_LIBS "whether to build a shared library" OFF)
 
 FIND_PROGRAM(RUBY ruby)
 FIND_PROGRAM(BISON bison)
-SET(MKMF_FOUND "NO")
-IF (RUBY)
-    EXECUTE_PROCESS(COMMAND ruby -e "require 'mkmf'" RESULT_VARIABLE REQUIRE_MKMF_RESULT ERROR_QUIET)
-    IF (${REQUIRE_MKMF_RESULT} EQUAL 0)
-        SET(MKMF_FOUND "YES")
-    ENDIF ()
-ENDIF ()
-IF (RUBY AND BISON AND MKMF_FOUND)
+IF (RUBY AND BISON)
     SET(WITH_MRUBY_DEFAULT "ON")
 ELSE ()
     SET(WITH_MRUBY_DEFAULT "OFF")
@@ -252,6 +245,7 @@ SET(LIB_SOURCE_FILES
     lib/handler/reproxy.c
     lib/handler/throttle_resp.c
     lib/handler/status.c
+    lib/handler/headers_util.c
     lib/handler/status/events.c
     lib/handler/status/requests.c
     lib/handler/http2_debug_state.c
@@ -269,6 +263,7 @@ SET(LIB_SOURCE_FILES
     lib/handler/configurator/throttle_resp.c
     lib/handler/configurator/status.c
     lib/handler/configurator/http2_debug_state.c
+    lib/handler/configurator/headers_util.c
 
     lib/http1.c
 
@@ -538,6 +533,39 @@ ENDIF (LIBUV_FOUND)
 ADD_CUSTOM_TARGET(check-as-root env H2O_ROOT=. BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR} prove -v t/90root-*.t
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+IF (BUILD_FUZZER)
+    IF(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        MESSAGE(FATAL_ERROR "The fuzzer needs clang as a compiler")
+    ENDIF()
+    ADD_EXECUTABLE(h2o-fuzzer-http1 fuzz/driver.cc)
+    ADD_EXECUTABLE(h2o-fuzzer-http2 fuzz/driver.cc)
+    ADD_EXECUTABLE(h2o-fuzzer-url fuzz/driver_url.cc)
+    SET_TARGET_PROPERTIES(h2o-fuzzer-http1 PROPERTIES COMPILE_FLAGS "-DHTTP1")
+    SET_TARGET_PROPERTIES(h2o-fuzzer-http2 PROPERTIES COMPILE_FLAGS "-DHTTP2")
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
+    IF (OSS_FUZZ)
+        # Use https://github.com/google/oss-fuzz compatible options
+        SET(LIB_FUZZER FuzzingEngine)
+        SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer")
+        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+    ELSE ()
+        # Default non-oss-fuzz options
+        SET(LIB_FUZZER "${CMAKE_CURRENT_BINARY_DIR}/libFuzzer.a")
+        SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize-coverage=edge,indirect-calls,8bit-counters")
+        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize-coverage=edge,indirect-calls,8bit-counters")
+
+        ADD_CUSTOM_TARGET(libFuzzer ${CMAKE_CURRENT_SOURCE_DIR}/misc/build_libFuzzer.sh WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+        ADD_DEPENDENCIES(h2o-fuzzer-http1 libFuzzer)
+        ADD_DEPENDENCIES(h2o-fuzzer-http2 libFuzzer)
+        ADD_DEPENDENCIES(h2o-fuzzer-url libFuzzer)
+    ENDIF (OSS_FUZZ)
+
+    TARGET_LINK_LIBRARIES(h2o-fuzzer-http1 libh2o-evloop ${EXTRA_LIBS} ${LIB_FUZZER})
+    TARGET_LINK_LIBRARIES(h2o-fuzzer-http2 libh2o-evloop ${EXTRA_LIBS} ${LIB_FUZZER})
+    TARGET_LINK_LIBRARIES(h2o-fuzzer-url libh2o-evloop ${EXTRA_LIBS} ${LIB_FUZZER})
+
+ENDIF (BUILD_FUZZER)
+
 # environment-specific tweaks
 IF (APPLE)
     SET_SOURCE_FILES_PROPERTIES(lib/socket.c lib/websocket.c src/main.c examples/simple.c examples/websocket.c PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations)
@@ -562,4 +590,7 @@ ELSE ()
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
 ENDIF ()
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS}")
+# Retain CXX_FLAGS for std c++ compatiability across fuzz build/test environments
+IF (NOT OSS_FUZZ)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS}")
+ENDIF (NOT OSS_FUZZ)
