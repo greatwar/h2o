@@ -491,7 +491,7 @@ IF (WITH_MRUBY)
     # note: the paths need to be determined before libmruby.flags.mak is generated
     TARGET_LINK_LIBRARIES(h2o
         "${CMAKE_CURRENT_BINARY_DIR}/mruby/host/lib/libmruby.a"
-        "${CMAKE_CURRENT_BINARY_DIR}/mruby/host/mrbgems/mruby-onig-regexp/onig-5.15.0/.libs/libonig.a"
+        "${CMAKE_CURRENT_BINARY_DIR}/mruby/host/mrbgems/mruby-onig-regexp/onigmo-6.1.1/.libs/libonigmo.a"
         "m")
     ADD_DEPENDENCIES(h2o mruby)
 ENDIF (WITH_MRUBY)
@@ -557,8 +557,11 @@ ADD_CUSTOM_TARGET(check env H2O_ROOT=. BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR} pr
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DEPENDS h2o t-00unit-evloop.t)
 IF (LIBUV_FOUND)
-    ADD_DEPENDENCIES(check t-00unit-libuv.t lib-examples)
-ENDIF (LIBUV_FOUND)
+    ADD_DEPENDENCIES(check t-00unit-libuv.t)
+    IF (OPENSSL_FOUND)
+        ADD_DEPENDENCIES(check lib-examples)
+    ENDIF ()
+ENDIF ()
 
 ADD_CUSTOM_TARGET(check-as-root env H2O_ROOT=. BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR} prove -v t/90root-*.t
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
