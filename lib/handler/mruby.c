@@ -480,7 +480,7 @@ static mrb_value build_env(h2o_mruby_generator_t *generator)
 
     { /* headers */
         h2o_header_t *headers_sorted = alloca(sizeof(*headers_sorted) * generator->req->headers.size);
-        memcpy(headers_sorted, generator->req->headers.entries, sizeof(*headers_sorted) * generator->req->headers.size);
+        h2o_memcpy(headers_sorted, generator->req->headers.entries, sizeof(*headers_sorted) * generator->req->headers.size);
         qsort(headers_sorted, generator->req->headers.size, sizeof(*headers_sorted), build_env_sort_header_cb);
         size_t i = 0;
         for (i = 0; i != generator->req->headers.size; ++i) {
@@ -812,6 +812,7 @@ h2o_mruby_handler_t *h2o_mruby_register(h2o_pathconf_t *pathconf, h2o_mruby_conf
     handler->config.source = h2o_strdup(NULL, vars->source.base, vars->source.len);
     if (vars->path != NULL)
         handler->config.path = h2o_strdup(NULL, vars->path, SIZE_MAX).base;
+    handler->config.lineno = vars->lineno;
 
     return handler;
 }
