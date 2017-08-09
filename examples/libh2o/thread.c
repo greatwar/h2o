@@ -36,7 +36,7 @@
 
 static h2o_pathconf_t *register_handler(h2o_hostconf_t *hostconf, const char *path, int (*on_req)(h2o_handler_t *, h2o_req_t *))
 {
-    h2o_pathconf_t *pathconf = h2o_config_register_path(hostconf, path);
+    h2o_pathconf_t *pathconf = h2o_config_register_path(hostconf, path,0);
     h2o_handler_t *handler = h2o_create_handler(pathconf, sizeof(*handler));
     handler->on_req = on_req;
     return pathconf;
@@ -48,7 +48,7 @@ static int echo_test(h2o_handler_t *self, h2o_req_t *req)
 	h2o_iovec_t body = h2o_strdup(&req->pool, "hello world\n", SIZE_MAX);
 	req->res.status = 200;
 	req->res.reason = "OK";
-	h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, H2O_STRLIT("text/plain"));
+	h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE,NULL, H2O_STRLIT("text/plain"));
 	h2o_start_response(req, &generator);
 	h2o_send(req, &body, 1, 1);
 	return 0;
@@ -72,7 +72,7 @@ static void demo_thread_doit(h2o_req_t *req){
 		h2o_iovec_t body = h2o_strdup(&req->pool, "hello world\n", SIZE_MAX);
 		req->res.status = 200;
 		req->res.reason = "OK";
-		h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, H2O_STRLIT("text/plain"));
+		h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, NULL, H2O_STRLIT("text/plain"));
 		h2o_start_response(req, &generator);
 		h2o_send(req, &body, 1, 1);
 }
@@ -95,7 +95,7 @@ static void *echo_in_thread(void *data)
 	
 	preq->receiver = &thread_receiver;
 	preq->pending = (h2o_linklist_t ) { };
-	preq->message = (h2o_multithread_message_t ) { };
+	preq->message = (h2o_multithread_message_t ) {{NULL}};
 
 	pthread_mutex_lock(&thread_mutex);
 	h2o_linklist_insert(&thread_pending, &preq->pending);
@@ -112,6 +112,102 @@ static int threadecho_test(h2o_handler_t *self, h2o_req_t *req)
 	return 0;
 }
 
+
+///
+///---------------------------- only response in thread
+typedef struct http_res_private_s http_res_private_t;
+struct http_res_private_s {
+    // h2o_multithread_receiver_t *receiver;
+    // h2o_linklist_t pending;
+    h2o_multithread_message_t message;
+
+    h2o_req_t *req;
+    h2o_iovec_t *body;
+};
+static inline void http_response_text(h2o_req_t *req, char *text, size_t len, char *content_type, int code,
+                                      char *reason) ;
+static void *echo2_in_thread(void *data)
+{
+    h2o_req_t *req = data;
+    
+    //sleep(1);
+    
+    http_response_text(req,"hello world",11,"text/plain",200,NULL);
+        
+    return NULL;
+}
+static int threadecho2_test(h2o_handler_t *self, h2o_req_t *req) 
+{
+    thpool_add_work(thpool,echo2_in_thread,req);
+    return 0;
+}
+pthread_t service_share_thread_id;
+h2o_multithread_receiver_t service_share_res_receiver={};
+
+static void http_res_doit(h2o_req_t *req, h2o_iovec_t *body) {
+//    T("in thread %lx", pthread_self());
+    h2o_generator_t generator = {NULL, NULL};
+    h2o_start_response(req, &generator);
+    h2o_send(req, body, 1, 1);
+}
+
+static void http_res_receive(h2o_multithread_receiver_t *receiver, h2o_linklist_t *messages) {
+    while (!h2o_linklist_is_empty(messages)) {
+        http_res_private_t *req = H2O_STRUCT_FROM_MEMBER(http_res_private_t, message.link, messages->next);
+        h2o_linklist_unlink(&req->message.link);
+        http_res_doit(req->req, req->body);
+    }
+}
+
+static long int tms_now(void) {
+    struct timespec ts = {0, 0};
+    int rc = clock_gettime(CLOCK_REALTIME, &ts);
+    return ((long int)ts.tv_sec) * 1000 + (((long int)ts.tv_nsec) / 1000000);
+}
+
+static inline void http_response_text(h2o_req_t *req, char *text, size_t len, char *content_type, int code,
+                                      char *reason) {
+    if (code < 1)
+        code = 200;
+    if (reason == NULL)
+        reason = "OK";
+    if (content_type == NULL)
+        content_type = "text/plain; charset=utf-8";
+
+    h2o_iovec_t *body = h2o_mem_alloc_pool(&req->pool, sizeof(h2o_iovec_t));
+    body->base = h2o_mem_alloc_pool(&req->pool, len + 1);
+    memcpy(body->base, text, len);
+    body->base[len] = '\0';
+    body->len = len;
+
+    req->res.status = code;
+    req->res.reason = reason;
+    req->res.content_length = len;
+    h2o_add_header_by_str(&req->pool, &req->res.headers, "Content-Type", 12, 0, NULL, content_type,
+                          strnlen(content_type, 128));
+    if (pthread_equal(service_share_thread_id, pthread_self())) {
+        h2o_generator_t generator = {NULL, NULL};
+        h2o_start_response(req, &generator);
+        h2o_send(req, body, 1, 1);
+    } else {
+        printf("-");
+        http_res_private_t *preq = h2o_mem_alloc_pool(&req->pool, sizeof(http_res_private_t));
+        preq->req = req;
+        preq->body = body;
+
+        // preq->receiver = &aux->res_receiver;
+        // preq->pending = (h2o_linklist_t ) { };
+        preq->message = (h2o_multithread_message_t){{NULL}};
+
+        // pthread_mutex_lock(&aux->res_mutex);
+        // h2o_linklist_insert(&aux->res_pending, &preq->pending);
+        // pthread_mutex_unlock(&aux->res_mutex);
+
+        //  h2o_multithread_send_message(preq->receiver, &preq->message);
+        h2o_multithread_send_message(&service_share_res_receiver, &preq->message);
+    }
+}
+///----------------------------
 static h2o_globalconf_t config;
 static h2o_context_t ctx;
 static h2o_accept_ctx_t accept_ctx;
@@ -163,17 +259,19 @@ Error:
 
 #else
 
-static void on_accept(h2o_socket_t *listener, int status)
+static void on_accept(h2o_socket_t *listener, const char *err)
 {
     h2o_socket_t *sock;
 
-    if (status == -1) {
-        return;
-    }
-
+    if (err != NULL) {
+            return;
+        }
+    for(int i = 0;i<1024;i++) {
     if ((sock = h2o_evloop_socket_accept(listener)) == NULL)
-        return;
+        break;
+    printf("a");
     h2o_accept(&accept_ctx, sock);
+    }
 }
 
 static int create_listener(void)
@@ -184,7 +282,7 @@ static int create_listener(void)
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(0x7f000001);
+    //addr.sin_addr.s_addr = htonl(0x7f000001);
     addr.sin_port = htons(7890);
 
     if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1 ||
@@ -211,6 +309,7 @@ int main(int argc, char **argv)
     hostconf = h2o_config_register_host(&config, h2o_iovec_init(H2O_STRLIT("default")), 65535);
     register_handler(hostconf, "/echo", echo_test);
     register_handler(hostconf, "/threadecho", threadecho_test);
+    register_handler(hostconf, "/threadecho2", threadecho2_test);
 
 #if H2O_USE_LIBUV
     uv_loop_t loop;
@@ -233,6 +332,9 @@ int main(int argc, char **argv)
     pthread_mutex_init(&thread_mutex, NULL);
     h2o_multithread_register_receiver(ctx.queue, &thread_receiver, demo_thread_receiver);
 
+    service_share_thread_id = pthread_self();
+    h2o_multithread_register_receiver(ctx.queue, &service_share_res_receiver, http_res_receive);
+    
     /* disabled by default: uncomment the line below to enable access logging */
     /* h2o_access_log_register(&config.default_host, "/dev/stdout", NULL); */
 
@@ -247,7 +349,7 @@ int main(int argc, char **argv)
 #if H2O_USE_LIBUV
     uv_run(ctx.loop, UV_RUN_DEFAULT);
 #else
-    while (h2o_evloop_run(ctx.loop) == 0)
+    while (h2o_evloop_run(ctx.loop,INT32_MAX) == 0)
         ;
 #endif
 
